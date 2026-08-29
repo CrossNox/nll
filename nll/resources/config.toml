@@ -1,0 +1,61 @@
+# Prefixes expand: SCH means every SCH rule.
+select = ["SCH", "SLO", "ZIN", "CHR", "LEN"]
+extend-select = []
+ignore = ["CHR000", "LEN001"]
+
+# Model alias or id passed to the claude CLI, and its effort level.
+model = "opus"
+effort = "high"
+
+# Skip fenced code blocks and inline code for every rule, the model included.
+ignore-code = true
+
+# How many documents are linted concurrently. Each document is one model call.
+max-concurrency = 4
+
+# Files linted when a directory is given. Hidden directories are skipped.
+include = ["*.md", "*.txt", "*.rst"]
+
+# A rule's code is its group prefix followed by its key. An entry is a
+# description, or a table with a description and the rule's options. The
+# description is a Jinja template that can use those options. Write an option
+# name with underscores in the template: max-sentences becomes max_sentences.
+
+[rules.SCH]
+description = "Schemes: figures that work through the arrangement or repetition of words rather than through meaning"
+001 = "Tricolon. Three parallel words, phrases or clauses arranged as a series for rhythm or emphasis. Example: 'It is fast, small and simple.' A list of three things that happen to be three is fine, the arrangement for effect is not."
+002 = "Isocolon. Two or more clauses of matching length and grammatical structure, set side by side for balance. Example: 'Simple to learn, hard to master.'"
+003 = "Anaphora. The same word or phrase opening successive clauses or sentences. Example: 'No config. No setup. No surprises.'"
+004 = "Antithesis. Contrasting ideas placed in parallel structure. Example: 'Not because it is easy, but because it is hard.'"
+005 = "Chiasmus. Words or structure repeated in reverse order across two clauses. Example: 'Ask not what your country can do for you, ask what you can do for your country.'"
+006 = "Asyndeton. Conjunctions dropped from a series of clauses or phrases to quicken the pace. Example: 'I came, I saw, I conquered.'"
+007 = "Alliterative pairing. Two or more nearby words chosen for a shared initial sound. Example: 'fast and fluid', 'bold and brave'."
+008 = "Epigrammatic closer. A short, pithy, quotable sentence used to close a paragraph or the whole text. Example: ending a paragraph with 'Simple tools, simple problems.'"
+000 = "Other scheme. Any scheme not covered above: epistrophe, polysyndeton, climax, symploce, and the like."
+
+[rules.SLO]
+description = "Slogans: sentences written to be quoted rather than to inform"
+001 = "Slogan. A sentence written to be quoted rather than to inform. Example: 'Ship less, sleep more.'"
+
+[rules.ZIN]
+description = "Zinsser's four principles of good writing"
+001 = "Simplicity. The sentence is more complex than the idea it carries, through long-winded construction or jargon where a plain word exists."
+002 = "Brevity. Words that do no work: padding, redundant pairs, throat-clearing openers and restating what was already said."
+003 = "Clarity. The reader cannot tell what is meant: ambiguous pronouns, vague references, undefined terms, sentences that need a second reading."
+004 = "Humanity. The writing does not sound like one person talking to another: stiff, bureaucratic, impersonal, over-hedged, or passive voice hiding who did what."
+
+[rules.CHR]
+description = "Characters that must not appear in prose"
+001 = "Em dash (U+2014)."
+002 = "En dash (U+2013)."
+003 = "Middle dot (U+00B7)."
+004 = "Semicolon."
+000 = "Any non-ASCII character not covered by another CHR rule."
+
+[rules.LEN]
+description = "Length and concision"
+002 = "Not concise. The text includes material the reader did not ask for: justification, background, alternatives or caveats."
+
+[rules.LEN.001]
+description = "The text has more than {{ max_sentences }} sentences."
+max-sentences = 3

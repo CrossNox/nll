@@ -1,0 +1,83 @@
+[project]
+name = "nll"
+version = "0.1.0"
+description = "Lint prose against a configurable set of style rules, judged by Claude."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "CrossNox", email = "ijmermet@gmail.com" }]
+keywords = ["lint", "prose", "writing", "style", "claude"]
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Text Processing :: Linguistic",
+]
+dependencies = [
+  "claude-agent-sdk>=0.2.148",
+  "jinja2>=3",
+  "pydantic>=2",
+  "python-json-logger>=3",
+  "rich>=13",
+  "typer>=0.15",
+]
+
+[project.urls]
+Repository = "https://github.com/CrossNox/nll"
+Issues = "https://github.com/CrossNox/nll/issues"
+
+[project.scripts]
+nll = "nll.cli:app"
+
+[dependency-groups]
+dev = ["mypy>=1.14", "pytest>=8", "ruff>=0.15"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+force-exclude = true
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle errors
+  "F",    # pyflakes
+  "I",    # isort
+  "W",    # pycodestyle warnings
+  "UP",   # pyupgrade
+  "B",    # flake8-bugbear
+  "SIM",  # flake8-simplify
+  "BLE",  # flake8-blind-except
+  "DTZ",  # flake8-datetimez
+  "RUF",  # ruff-specific rules
+  "C90",  # mccabe: cyclomatic complexity
+  "D205", # pydocstyle: blank line between the docstring summary and its body
+  "D401", # pydocstyle: docstring summary in the imperative mood
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+# the linter's own subject matter: the CHR rules and their fixtures are these characters
+"nll/checks.py" = ["RUF001"]
+"tests/*.py" = ["RUF001"]
+
+[tool.mypy]
+strict = true
+files = ["nll", "tests"]
+plugins = ["pydantic.mypy"]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "nll"
+module-root = ""
