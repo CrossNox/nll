@@ -36,7 +36,7 @@ Example output:
 notes.md:3:61: SCH003 Three successive fragments open with the same word for emphasis, which is anaphora.
     > No config. No cron. No surprises.
     Fix: It needs no config file and no cron entry.
-notes.md:5:96: CHR004 Semicolon
+notes.md:5:96: CHR004 Semicolon.
     > Set it up once; forget about it.
     Fix: Split into two sentences or join with a comma
 Found 2 violations.
@@ -44,7 +44,7 @@ Found 2 violations.
 
 ## Configure
 
-nll looks for `nll.toml` or a `[tool.nll]` table in `pyproject.toml`, walking up from the working directory. If neither is found, it reads `$XDG_CONFIG_HOME/nll/config.toml` (`~/.config/nll/config.toml` when the variable is unset). Each key in that file overrides the matching shipped default. The defaults are [`nll/resources/config.toml`](nll/resources/config.toml):
+nll walks up from the working directory looking for a `pyproject.toml` with a `[tool.nll]` table or an `nll.toml`. When a directory has both, the `pyproject.toml` wins and nll logs a warning. If neither is found, it reads `$XDG_CONFIG_HOME/nll/config.toml` (`~/.config/nll/config.toml` when the variable is unset). Each key in that file overrides the matching shipped default. The defaults are [`nll/resources/config.toml`](nll/resources/config.toml):
 
 ```toml
 # Prefixes expand: SCH means every SCH rule.
@@ -93,7 +93,7 @@ abc = "Shows a credential or token in an example"
 
 That defines `SEC001` and `SECabc`, judged by the model. nll shows the group description to the model above its rules, so make it say what the group is for. Group prefixes are uppercase letters and cannot repeat a built-in group.
 
-Descriptions are Jinja templates that can use the rule's options. Write an option name with underscores in the template, so `max-sentences` becomes `{{ max_sentences }}` and `"More than {{ max_sentences }} sentences."` renders with the configured value. nll accepts options only on rules that declare them (`RULE_OPTION_TYPES` in `nll/rules.py`).
+A description can name the rule's options in braces. Write an option name with underscores, so `max-sentences` becomes `{max_sentences}` and `"More than {max_sentences} sentences."` renders with the configured value. nll accepts options only on rules that declare them (`PYTHON_CHECKS` in `nll/checks.py`).
 
 ## Built-in rules
 

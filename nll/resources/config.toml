@@ -18,8 +18,8 @@ include = ["*.md", "*.txt", "*.rst"]
 
 # A rule's code is its group prefix followed by its key. An entry is a
 # description, or a table with a description and the rule's options. The
-# description is a Jinja template that can use those options. Write an option
-# name with underscores in the template: max-sentences becomes max_sentences.
+# description can name those options in braces. Write an option name with
+# underscores there: max-sentences becomes {max_sentences}.
 
 [rules.SCH]
 description = "Schemes: figures that work through the arrangement or repetition of words rather than through meaning"
@@ -57,5 +57,5 @@ description = "Length and concision"
 002 = "Not concise. The text includes material the reader did not ask for: justification, background, alternatives or caveats."
 
 [rules.LEN.001]
-description = "The text has more than {{ max_sentences }} sentences."
+description = "The text has more than {max_sentences} sentences."
 max-sentences = 3

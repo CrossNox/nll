@@ -2,36 +2,47 @@
 
 import bisect
 import re
-
-from pydantic import BaseModel, ConfigDict
+from dataclasses import dataclass
+from functools import cached_property
+from pathlib import Path
 
 FENCED_CODE = re.compile(r"^(```|~~~).*?^\1[ \t]*$", re.MULTILINE | re.DOTALL)
 INLINE_CODE = re.compile(r"`[^`\n]+`")
 
 
-class Position(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
+@dataclass(frozen=True)
+class Position:
     line: int
     column: int
 
 
+@dataclass(frozen=True)
 class Document:
-    def __init__(self, text: str, path: str):
-        self.text = text
-        self.path = path
-        self._line_starts = [0] + [match.end() for match in re.finditer("\n", text)]
+    text: str
+    path: str
+
+    @classmethod
+    def read(cls, path: Path) -> "Document":
+        return cls(path.read_text(encoding="utf-8"), str(path))
+
+    @cached_property
+    def lines(self) -> list[str]:
+        return self.text.split("\n")
+
+    @cached_property
+    def line_starts(self) -> list[int]:
+        return [0] + [match.end() for match in re.finditer("\n", self.text)]
 
     def locate_offset(self, offset: int) -> Position:
         """Convert a character offset into a 1-based line and column."""
-        line_index = bisect.bisect_right(self._line_starts, offset) - 1
-        column = offset - self._line_starts[line_index] + 1
+        line_index = bisect.bisect_right(self.line_starts, offset) - 1
+        column = offset - self.line_starts[line_index] + 1
 
         return Position(line=line_index + 1, column=column)
 
     def read_line(self, line: int) -> str:
         """Return the content of a 1-based line without its newline."""
-        return self.text.split("\n")[line - 1]
+        return self.lines[line - 1]
 
     def extract_prose(self, ignore_code: bool) -> str:
         """Return the text with code masked to spaces so offsets stay aligned."""

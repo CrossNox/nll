@@ -5,7 +5,6 @@ from typing import Any
 import pytest
 from claude_agent_sdk import ResultMessage
 
-from nll.config import Config
 from nll.linter import Linter
 from nll.rules import RuleBook
 
@@ -20,18 +19,13 @@ def no_user_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture
-def default_linter(no_user_config: Path) -> Linter:
-    return Linter.load(None, no_user_config, None, [], [])
+def default_linter() -> Linter:
+    return Linter.from_config(None)
 
 
 @pytest.fixture
-def default_config(default_linter: Linter) -> Config:
-    return default_linter.config
-
-
-@pytest.fixture
-def rulebook(default_config: Config) -> RuleBook:
-    return default_config.rules
+def rulebook(default_linter: Linter) -> RuleBook:
+    return default_linter.rules
 
 
 @pytest.fixture
@@ -55,7 +49,7 @@ def fake_model(monkeypatch: pytest.MonkeyPatch) -> FakeModel:
                 structured_output=structured_output,
             )
 
-        monkeypatch.setattr("nll.model.query", fake_query)
+        monkeypatch.setattr("nll.judge.query", fake_query)
         return calls
 
     return install

@@ -1,13 +1,12 @@
-"""Parse the command line, gather the documents and run the linter."""
+"""Parse the command line and run the linter."""
 
 import pathlib as pl
 import sys
-from fnmatch import fnmatch
 from typing import Annotated
 
 import typer
 
-from nll.document import Document
+from nll.config import discover_config_file
 from nll.linter import Linter
 from nll.logconfig import (
     DEFAULT_PRETTY,
@@ -15,7 +14,7 @@ from nll.logconfig import (
     DEFAULT_VERBOSE,
     config_logging,
 )
-from nll.violations import OutputFormat, RuleViolations
+from nll.violations import OutputFormat, render_violations
 
 app = typer.Typer(
     add_completion=False,
@@ -49,52 +48,6 @@ IgnoreOption = Annotated[
         help="Disable these rules or prefixes.",
     ),
 ]
-
-
-def find_files(directory: pl.Path, include: list[str]) -> list[pl.Path]:
-    """Walk a directory for files matching the patterns, skipping hidden directories."""
-    files: list[pl.Path] = []
-
-    for child in sorted(directory.iterdir()):
-        if child.name.startswith("."):
-            continue
-
-        if child.is_dir():
-            files.extend(find_files(child, include))
-        elif any(fnmatch(child.name, pattern) for pattern in include):
-            files.append(child)
-
-    return files
-
-
-def read_document(path: pl.Path) -> Document:
-    return Document(path.read_text(encoding="utf-8"), str(path))
-
-
-def read_stdin_document() -> Document:
-    """Read the text piped to stdin, refusing to wait on a terminal."""
-    if sys.stdin.isatty():
-        raise typer.BadParameter("no paths given and nothing piped to stdin")
-
-    return Document(sys.stdin.read(), "<stdin>")
-
-
-def collect_documents(paths: list[pl.Path], include: list[str]) -> list[Document]:
-    """Read the named files and directories, or stdin when nothing is named."""
-    if len(paths) == 0:
-        return [read_stdin_document()]
-
-    documents: list[Document] = []
-    for path in paths:
-        if path.is_dir():
-            files = find_files(path, include)
-            if len(files) == 0:
-                typer.echo(f"{path}: no files match {' '.join(include)}", err=True)
-            documents.extend(read_document(file) for file in files)
-        else:
-            documents.append(read_document(path))
-
-    return documents
 
 
 @app.callback()
@@ -132,20 +85,31 @@ def lint(
             help="Files or directories to lint. Reads stdin when none are given."
         ),
     ] = None,
-    config: ConfigOption = None,
+    config_file: ConfigOption = None,
     select: SelectOption = None,
     output_format: Annotated[
         OutputFormat, typer.Option(help="How to print violations.")
     ] = OutputFormat.TEXT,
 ) -> None:
     """Lint files and print the violations. Exits with 1 when any is reported."""
-    linter: Linter = Linter.load(config, pl.Path.cwd(), select, extend_select, ignore)
-    documents: list[Document] = collect_documents(
-        [] if paths is None else paths, linter.config.include
-    )
-    violations: RuleViolations = linter.lint_all(documents)
+    if config_file is None:
+        config_file = discover_config_file(pl.Path.cwd())
 
-    print(violations.render(output_format))
+    linter = Linter.from_config(
+        config_file,
+        select=select,
+        extend_select=extend_select,
+        ignore=ignore,
+    )
+
+    if paths is None:
+        if sys.stdin.isatty():
+            raise typer.BadParameter("no paths given and nothing piped to stdin")
+        violations = linter.lint_text(sys.stdin.read(), path="<stdin>")
+    else:
+        violations = linter.lint_files(paths)
+
+    print(violations.render_as(output_format))
 
     if len(violations) > 0:
         raise typer.Exit(code=1)
@@ -155,10 +119,18 @@ def lint(
 def list_rules(
     extend_select: ExtendSelectOption,
     ignore: IgnoreOption,
-    config: ConfigOption = None,
+    config_file: ConfigOption = None,
     select: SelectOption = None,
 ) -> None:
     """Print the rule book with each rule's on/off state and who checks it."""
-    linter: Linter = Linter.load(config, pl.Path.cwd(), select, extend_select, ignore)
+    if config_file is None:
+        config_file = discover_config_file(pl.Path.cwd())
 
-    print(linter.render_rules())
+    linter = Linter.from_config(
+        config_file,
+        select=select,
+        extend_select=extend_select,
+        ignore=ignore,
+    )
+
+    print(linter.rules)
