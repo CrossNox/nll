@@ -3,18 +3,19 @@ select = ["SCH", "SLO", "ZIN", "CHR", "LEN"]
 extend-select = []
 ignore = ["CHR000", "LEN001"]
 
-# Model alias or id passed to the claude CLI, and its effort level.
-model = "opus"
-effort = "high"
-
 # Skip fenced code blocks and inline code for every rule, the model included.
 ignore-code = true
 
 # How many documents are linted concurrently. Each document is one model call.
 max-concurrency = 4
 
-# Files linted when a directory is given. Hidden directories are skipped.
-include = ["*.md", "*.txt", "*.rst"]
+# Extensions linted when a directory is given. Hidden directories are skipped.
+include-extensions = [".md", ".txt", ".rst"]
+
+# Model alias or id passed to the claude CLI, and its effort level.
+model = "opus"
+model-effort = "high"
+
 
 # A rule's code is its group prefix followed by its key. An entry is a
 # description, or a table with a description and the rule's options. The
@@ -54,8 +55,5 @@ description = "Characters that must not appear in prose"
 
 [rules.LEN]
 description = "Length and concision"
+001 = { description = "The text has more than {max_sentences} sentences.", max-sentences = 3 }
 002 = "Not concise. The text includes material the reader did not ask for: justification, background, alternatives or caveats."
-
-[rules.LEN.001]
-description = "The text has more than {max_sentences} sentences."
-max-sentences = 3

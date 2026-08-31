@@ -6,7 +6,8 @@ from typing import Annotated
 
 import typer
 
-from nll.config import discover_config_file
+from nll.config import SHIPPED_CONFIG_FILE, discover_config_file
+from nll.judge import Effort
 from nll.linter import Linter
 from nll.logconfig import (
     DEFAULT_PRETTY,
@@ -14,7 +15,7 @@ from nll.logconfig import (
     DEFAULT_VERBOSE,
     config_logging,
 )
-from nll.violations import OutputFormat, render_violations
+from nll.violations import OutputFormat
 
 app = typer.Typer(
     add_completion=False,
@@ -23,30 +24,58 @@ app = typer.Typer(
     pretty_exceptions_enable=False,
 )
 
+PathsArgument = Annotated[
+    list[pl.Path] | None,
+    typer.Argument(
+        help="Files or directories to lint. Reads stdin when none are given."
+    ),
+]
 ConfigOption = Annotated[
-    pl.Path | None, typer.Option(help="Config file, instead of the discovered one.")
+    pl.Path | None,
+    typer.Option(
+        help="Config file. Discovered from the working directory when not given."
+    ),
 ]
 SelectOption = Annotated[
     list[str] | None,
     typer.Option(
-        help="Enable exactly these rules or prefixes, ignoring the config's selection."
+        help="Enable exactly these rules or prefixes, replacing the config's selection."
     ),
 ]
 ExtendSelectOption = Annotated[
-    list[str],
-    typer.Option(
-        default_factory=list,
-        show_default=False,
-        help="Enable these rules or prefixes on top.",
-    ),
+    list[str] | None,
+    typer.Option(help="Enable these rules or prefixes on top of the selection."),
 ]
 IgnoreOption = Annotated[
-    list[str],
+    list[str] | None,
+    typer.Option(help="Disable these rules or prefixes."),
+]
+IgnoreCodeOption = Annotated[
+    bool | None,
     typer.Option(
-        default_factory=list,
-        show_default=False,
-        help="Disable these rules or prefixes.",
+        "--ignore-code/--include-code",
+        help="Skip fenced code blocks and inline code, for every rule.",
     ),
+]
+ModelOption = Annotated[
+    str | None, typer.Option(help="Model alias or id the judge calls.")
+]
+EffortOption = Annotated[
+    Effort | None, typer.Option(help="Effort level the judge runs at.")
+]
+MaxConcurrencyOption = Annotated[
+    int | None,
+    typer.Option(min=1, help="How many documents are linted concurrently."),
+]
+IncludeExtensionOption = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--include-extension",
+        help="Extensions linted when a directory is given, replacing the config's.",
+    ),
+]
+OutputFormatOption = Annotated[
+    OutputFormat, typer.Option(help="How to print violations.")
 ]
 
 
@@ -77,19 +106,17 @@ def main(
 
 @app.command()
 def lint(
-    extend_select: ExtendSelectOption,
-    ignore: IgnoreOption,
-    paths: Annotated[
-        list[pl.Path] | None,
-        typer.Argument(
-            help="Files or directories to lint. Reads stdin when none are given."
-        ),
-    ] = None,
+    paths: PathsArgument = None,
     config_file: ConfigOption = None,
     select: SelectOption = None,
-    output_format: Annotated[
-        OutputFormat, typer.Option(help="How to print violations.")
-    ] = OutputFormat.TEXT,
+    extend_select: ExtendSelectOption = None,
+    ignore: IgnoreOption = None,
+    ignore_code: IgnoreCodeOption = None,
+    model: ModelOption = None,
+    model_effort: EffortOption = None,
+    max_concurrency: MaxConcurrencyOption = None,
+    include_extensions: IncludeExtensionOption = None,
+    output_format: OutputFormatOption = OutputFormat.TEXT,
 ) -> None:
     """Lint files and print the violations. Exits with 1 when any is reported."""
     if config_file is None:
@@ -100,14 +127,20 @@ def lint(
         select=select,
         extend_select=extend_select,
         ignore=ignore,
+        ignore_code=ignore_code,
+        model=model,
+        model_effort=model_effort,
+        max_concurrency=max_concurrency,
+        include_extensions=include_extensions,
     )
 
     if paths is None:
         if sys.stdin.isatty():
             raise typer.BadParameter("no paths given and nothing piped to stdin")
-        violations = linter.lint_text(sys.stdin.read(), path="<stdin>")
+
+        violations = linter.lint_text(sys.stdin.read())
     else:
-        violations = linter.lint_files(paths)
+        violations = linter.lint_paths(paths)
 
     print(violations.render_as(output_format))
 
@@ -117,10 +150,10 @@ def lint(
 
 @app.command(name="rules")
 def list_rules(
-    extend_select: ExtendSelectOption,
-    ignore: IgnoreOption,
     config_file: ConfigOption = None,
     select: SelectOption = None,
+    extend_select: ExtendSelectOption = None,
+    ignore: IgnoreOption = None,
 ) -> None:
     """Print the rule book with each rule's on/off state and who checks it."""
     if config_file is None:
@@ -134,3 +167,9 @@ def list_rules(
     )
 
     print(linter.rules)
+
+
+@app.command(name="config")
+def print_shipped_config() -> None:
+    """Print the shipped config, to copy and edit: nll config > nll.toml."""
+    print(SHIPPED_CONFIG_FILE.read_text(encoding="utf-8"), end="")
