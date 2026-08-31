@@ -80,7 +80,7 @@ class RulesDefinitions(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def build_rules(cls, sections: dict[str, Any]) -> dict[str, Any]:
-        """Build one rule per code across every `[rules.<SECTION>]` table."""
+        """Build one rule per code in every section."""
         rules_sections: list[dict[str, Any]] = []
 
         for section_name, section in sections.items():
@@ -100,21 +100,25 @@ class RulesDefinitions(BaseModel):
                 description: str
                 arguments: dict[str, Any]
 
-                try:
-                    description = definition["description"]
-                    arguments = {
-                        key.replace("-", "_"): value
-                        for key, value in definition.items()
-                        if key != "description"
-                    }
-                except TypeError:
-                    description = definition
-                    arguments = {}
-                except KeyError as e:
-                    logger.error("Bad config for %s%s", section_name, code)
-                    raise ValueError(
-                        f"Bad config for {section_name}{code}: no description"
-                    ) from e
+                match definition:
+                    case {"description": description, **rest}:
+                        arguments = {
+                            key.replace("-", "_"): value
+                            for key, value in rest.items()
+                        }
+                    case {}:
+                        logger.error("Bad config for %s%s", section_name, code)
+                        raise ValueError(
+                            f"Bad config for {section_name}{code}: no description"
+                        )
+                    case str():
+                        description, arguments = definition, {}
+                    case _:
+                        logger.error("Bad config for %s%s", section_name, code)
+                        raise ValueError(
+                            f"Bad config for {section_name}{code}: "
+                            "must be a description, or a description with arguments"
+                        )
 
                 rule_class = CodeRule.registry.get(f"{section_name}{code}", ModelRule)
                 rules.append(
