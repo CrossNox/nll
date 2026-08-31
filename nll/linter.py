@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, PositiveInt, ValidationError
 from nll.config import SHIPPED_CONFIG_FILE, read_config_file
 from nll.document import Document
 from nll.judge import Effort, ModelJudge
-from nll.rules import RuleBook, RuleDefinitions
+from nll.rules import RuleBook, RulesDefinitions
 from nll.violations import Violations
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class LinterConfig(BaseModel):
     ignore_code: bool = Field(alias="ignore-code")
     max_concurrency: PositiveInt = Field(alias="max-concurrency")
     include_extensions: list[str] = Field(alias="include-extensions")
-    rules: RuleDefinitions
+    rules: RulesDefinitions
 
 
 class Linter:
@@ -89,7 +89,7 @@ class Linter:
     def __init__(self, config: LinterConfig):
         self.config: LinterConfig = config
         self.rules: RuleBook = RuleBook(
-            definitions=self.config.rules,
+            rules_definitions=self.config.rules,
             select=self.config.select,
             extend_select=self.config.extend_select,
             ignore=self.config.ignore,
@@ -151,12 +151,12 @@ class Linter:
 
         violations = Violations()
 
-        for rule in self.rules.python_rules:
-            violations.extend(rule.run_check(document))
+        for rule in self.rules.code_rules:
+            violations.extend(rule(document))
 
-        if len(self.rules.llm_rules) > 0:
+        if len(self.rules.model_rules) > 0:
             llm_judge = ModelJudge(
-                self.rules.llm_rules,
+                self.rules.model_rules,
                 model=self.config.model,
                 model_effort=self.config.effort,
             )

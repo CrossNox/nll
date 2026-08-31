@@ -17,10 +17,10 @@ model = "opus"
 model-effort = "high"
 
 
-# A rule's code is its group prefix followed by its key. An entry is a
-# description, or a table with a description and the rule's options. The
-# description can name those options in braces. Write an option name with
-# underscores there: max-sentences becomes {max_sentences}.
+# A rule's identifier is its section prefix followed by its code, so SCH and
+# 001 make SCH001. An entry is a description, or a table with a description
+# and the rule's arguments. The description can name those arguments in
+# braces. Write one with underscores: max-sentences becomes {max_sentences}.
 
 [rules.SCH]
 description = "Schemes: figures that work through the arrangement or repetition of words rather than through meaning"

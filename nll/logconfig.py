@@ -56,3 +56,8 @@ def config_logging(
     level = choose_level_for_verbosity(verbose)
     handler = build_handler(structured, pretty, level)
     logging.basicConfig(level=level, handlers=[handler])
+
+
+def get_logger(name: str) -> logging.Logger:
+    """Get a logger with the given name."""
+    return logging.getLogger(name)
