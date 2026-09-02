@@ -13,7 +13,7 @@ from nll.violations import Violations
 logger = get_logger(__name__)
 
 
-class Rule(ABC):
+class Rule:
     def __init__(
         self,
         section: str,
@@ -42,7 +42,7 @@ class ModelRule(Rule):
     pass
 
 
-class CodeRule(Rule):
+class CodeRule(Rule, ABC):
     """A rule that can be defined in code."""
 
     registry: ClassVar[dict[str, type["CodeRule"]]] = {}
@@ -74,7 +74,7 @@ class RulesSection(BaseModel):
 class RulesDefinitions(BaseModel):
     sections: list[RulesSection]
 
-    def __iter__(self) -> Iterator[Rule]:
+    def iter_rules(self) -> Iterator[Rule]:
         return chain.from_iterable(section.rules for section in self.sections)
 
     @model_validator(mode="before")
@@ -103,8 +103,7 @@ class RulesDefinitions(BaseModel):
                 match definition:
                     case {"description": description, **rest}:
                         arguments = {
-                            key.replace("-", "_"): value
-                            for key, value in rest.items()
+                            key.replace("-", "_"): value for key, value in rest.items()
                         }
                     case {}:
                         logger.error("Bad config for %s%s", section_name, code)
@@ -156,7 +155,7 @@ class RuleBook:
 
         self.rules_on = set(
             rule.identifier
-            for rule in self.rules_definitions
+            for rule in self.rules_definitions.iter_rules()
             if any(
                 rule.identifier.startswith(selector)
                 for selector in (*self.select, *self.extend_select)
@@ -166,16 +165,15 @@ class RuleBook:
             )
         )
 
-        self.code_rules = [
+        self.code_rules: list[CodeRule] = [
             rule
-            for rule in self.rules_definitions
-            if rule.identifier in CodeRule.registry and rule.identifier in self.rules_on
+            for rule in self.rules_definitions.iter_rules()
+            if isinstance(rule, CodeRule) and rule.identifier in self.rules_on
         ]
-        self.model_rules = [
+        self.model_rules: list[ModelRule] = [
             rule
-            for rule in self.rules_definitions
-            if rule.identifier not in CodeRule.registry
-            and rule.identifier in self.rules_on
+            for rule in self.rules_definitions.iter_rules()
+            if isinstance(rule, ModelRule) and rule.identifier in self.rules_on
         ]
         self.all_rules = rules_definitions
 

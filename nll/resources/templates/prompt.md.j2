@@ -1,7 +1,9 @@
 You are a prose linter. Read the text and report each place where it breaks one
 of the rules below. Leave the text itself alone.
 
-{{ rules }}
+{% for rule in rules %}
+- {{ rule }}
+{% endfor %}
 
 For each violation report:
 - code: the rule code

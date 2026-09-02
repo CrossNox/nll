@@ -44,7 +44,6 @@ def apply_settings_overrides(
     ignore: Sequence[str] | None = None,
     model: str | None = None,
     model_effort: Effort | None = None,
-    ignore_code: bool | None = None,
     max_concurrency: int | None = None,
     include_extensions: Sequence[str] | None = None,
 ) -> dict[str, Any]:
@@ -55,7 +54,6 @@ def apply_settings_overrides(
         "ignore": ignore,
         "model": model,
         "model-effort": model_effort,
-        "ignore-code": ignore_code,
         "max-concurrency": max_concurrency,
         "include-extensions": include_extensions,
     }
@@ -77,7 +75,6 @@ class LinterConfig(BaseModel):
     model: str
     effort: Effort = Field(alias="model-effort")
 
-    ignore_code: bool = Field(alias="ignore-code")
     max_concurrency: PositiveInt = Field(alias="max-concurrency")
     include_extensions: list[str] = Field(alias="include-extensions")
     rules: RulesDefinitions
@@ -104,7 +101,6 @@ class Linter:
         select: Sequence[str] | None = None,
         extend_select: Sequence[str] | None = None,
         ignore: Sequence[str] | None = None,
-        ignore_code: bool | None = None,
         model: str | None = None,
         model_effort: Effort | None = None,
         max_concurrency: int | None = None,
@@ -120,7 +116,6 @@ class Linter:
             ignore=ignore,
             model=model,
             model_effort=model_effort,
-            ignore_code=ignore_code,
             max_concurrency=max_concurrency,
             include_extensions=include_extensions,
         )
@@ -173,7 +168,7 @@ class Linter:
 
     def lint_text(self, text: str) -> Violations:
         """Lint text."""
-        document = Document(prose=text, ignore_code=self.config.ignore_code)
+        document = Document(prose=text)
         return asyncio.run(self.lint(document))
 
     def _collect_matching_files(self, directory: Path) -> list[Path]:
@@ -209,11 +204,7 @@ class Linter:
     async def _lint_file(self, path: Path, semaphore: asyncio.Semaphore) -> Violations:
         """Lint one file, holding a concurrency slot for the whole call."""
         async with semaphore:
-            document = Document(
-                prose=path.read_text(encoding="utf-8"),
-                path=path,
-                ignore_code=self.config.ignore_code,
-            )
+            document = Document(path=path)
 
             return await self.lint(document)
 

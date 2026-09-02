@@ -3,9 +3,6 @@ select = ["SCH", "SLO", "ZIN", "CHR", "LEN"]
 extend-select = []
 ignore = ["CHR000", "LEN001"]
 
-# Skip fenced code blocks and inline code for every rule, the model included.
-ignore-code = true
-
 # How many documents are linted concurrently. Each document is one model call.
 max-concurrency = 4
 

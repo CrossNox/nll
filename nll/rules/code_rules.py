@@ -19,12 +19,14 @@ class ForbiddenCharacter(CodeRule, identifier=None):
     def __call__(self, document: Document) -> Violations:
         violations = []
 
-        for line_number, line in enumerate(document.lines):
-            offset = line.find(self.character)
+        for line_number, line in enumerate(document.lines, start=1):
+            index = line.find(self.character)
 
-            while offset != -1:
-                violations.append(Violation(rule=self, line=line_number, offset=offset))
-                offset = line.find(self.character, offset + 1)
+            while index != -1:
+                violations.append(
+                    Violation(rule=self, line=line_number, offset=index + 1)
+                )
+                index = line.find(self.character, index + 1)
 
         return Violations(violations)
 
@@ -34,7 +36,7 @@ class EmDash(ForbiddenCharacter, identifier="CHR001"):
 
 
 class EnDash(ForbiddenCharacter, identifier="CHR002"):
-    character = "–"
+    character = "–"  # noqa: RUF001
 
 
 class MiddleDot(ForbiddenCharacter, identifier="CHR003"):
@@ -56,11 +58,11 @@ class OtherNonAscii(CodeRule, identifier="CHR000"):
         }
         violations = []
 
-        for line_number, line in enumerate(document.lines):
+        for line_number, line in enumerate(document.lines, start=1):
             if line.isascii():
                 continue
 
-            for offset, found in enumerate(line):
+            for offset, found in enumerate(line, start=1):
                 if found.isascii() or found in covered:
                     continue
 

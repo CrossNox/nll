@@ -15,7 +15,6 @@ from nll.logconfig import (
     DEFAULT_VERBOSE,
     config_logging,
 )
-from nll.violations import OutputFormat
 
 app = typer.Typer(
     add_completion=False,
@@ -50,13 +49,6 @@ IgnoreOption = Annotated[
     list[str] | None,
     typer.Option(help="Disable these rules or prefixes."),
 ]
-IgnoreCodeOption = Annotated[
-    bool | None,
-    typer.Option(
-        "--ignore-code/--include-code",
-        help="Skip fenced code blocks and inline code, for every rule.",
-    ),
-]
 ModelOption = Annotated[
     str | None, typer.Option(help="Model alias or id the judge calls.")
 ]
@@ -74,10 +66,6 @@ IncludeExtensionOption = Annotated[
         help="Extensions linted when a directory is given, replacing the config's.",
     ),
 ]
-OutputFormatOption = Annotated[
-    OutputFormat, typer.Option(help="How to print violations.")
-]
-
 
 @app.callback()
 def main(
@@ -111,12 +99,10 @@ def lint(
     select: SelectOption = None,
     extend_select: ExtendSelectOption = None,
     ignore: IgnoreOption = None,
-    ignore_code: IgnoreCodeOption = None,
     model: ModelOption = None,
     model_effort: EffortOption = None,
     max_concurrency: MaxConcurrencyOption = None,
     include_extensions: IncludeExtensionOption = None,
-    output_format: OutputFormatOption = OutputFormat.TEXT,
 ) -> None:
     """Lint files and print the violations. Exits with 1 when any is reported."""
     if config_file is None:
@@ -127,7 +113,6 @@ def lint(
         select=select,
         extend_select=extend_select,
         ignore=ignore,
-        ignore_code=ignore_code,
         model=model,
         model_effort=model_effort,
         max_concurrency=max_concurrency,
@@ -142,7 +127,7 @@ def lint(
     else:
         violations = linter.lint_paths(paths)
 
-    print(violations.render_as(output_format))
+    print(violations)
 
     if len(violations) > 0:
         raise typer.Exit(code=1)

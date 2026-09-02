@@ -1,87 +1,86 @@
-"""Represent rule violations and render them for people or for machines."""
+"""Represent rule violations."""
 
-import json
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from enum import StrEnum, auto
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING
 
-from nll.document import Position
+if TYPE_CHECKING:
+    from nll.rules import Rule
 
-
-class OutputFormat(StrEnum):
-    TEXT = auto()
-    JSON = auto()
+QUOTE_WIDTH = 100
 
 
 @dataclass(frozen=True)
 class Violation:
-    code: str
-    path: str
-    position: Position | None
-    message: str
-    quote: str | None
-    suggestion: str | None
+    rule: "Rule"
+    path: Path | None = None
+    line: int | None = None
+    offset: int | None = None
+    quote: str | None = None
 
-    def render_text(self) -> str:
-        """Render the violation in the `path:line:col: CODE message` layout."""
-        if self.position is None:
-            location = f"{self.path}:?:?"
-        else:
-            location = f"{self.path}:{self.position.line}:{self.position.column}"
+    def __str__(self) -> str:
+        if self.line is None or self.offset is None or self.quote is None:
+            return str(self.rule)
 
-        lines = [f"{location}: {self.code} {self.message}"]
+        elided = max(self.offset - 4, 0)
+        quote = self.quote[elided:]
 
-        if self.quote is not None:
-            lines.append(f"    > {self.quote}")
+        if len(quote) > QUOTE_WIDTH:
+            quote = f"{quote[:QUOTE_WIDTH]}...[{len(quote) - QUOTE_WIDTH} chars]"
 
-        if self.suggestion is not None:
-            lines.append(f"    Fix: {self.suggestion}")
+        if elided > 0:
+            quote = f"[{elided} chars]...{quote}"
 
-        return "\n".join(lines)
-
-    def serialize(self) -> dict[str, Any]:
-        """Flatten the violation for JSON output."""
-        return {
-            "code": self.code,
-            "path": self.path,
-            "line": None if self.position is None else self.position.line,
-            "column": None if self.position is None else self.position.column,
-            "message": self.message,
-            "quote": self.quote,
-            "suggestion": self.suggestion,
-        }
+        return f"line {self.line}:\n\n> {quote}\n\n{self.rule}"
 
 
-def sort_violations_by_position(violations: Iterable[Violation]) -> list[Violation]:
-    """Order the violations of one document by position, unlocated ones last."""
-
-    def position_key(violation: Violation) -> tuple[bool, int, int, str]:
-        if violation.position is None:
-            return (True, 0, 0, violation.code)
-
-        return (
-            False,
-            violation.position.line,
-            violation.position.column,
-            violation.code,
+class Violations:
+    def __init__(self, violations: Iterable[Violation] = ()):
+        self.violations = sorted(
+            violations,
+            key=lambda violation: (
+                violation.path is not None,
+                str(violation.path),
+                violation.line is not None,
+                violation.line,
+                violation.offset,
+            ),
         )
 
-    return sorted(violations, key=position_key)
+    def __len__(self) -> int:
+        return len(self.violations)
 
+    def __iter__(self) -> Iterator[Violation]:
+        return iter(self.violations)
 
-def render_violations(
-    violations: Sequence[Violation], output_format: OutputFormat
-) -> str:
-    """Render as text with a closing count, or as a JSON array."""
-    if output_format is OutputFormat.JSON:
-        return json.dumps(
-            [violation.serialize() for violation in violations],
-            indent=2,
-            ensure_ascii=False,
+    @classmethod
+    def collect(cls, parts: Iterable["Violations"]) -> "Violations":
+        """Gather the violations of many documents into one set."""
+        return cls(violation for part in parts for violation in part)
+
+    def __str__(self) -> str:
+        blocks = []
+        current_path: Path | None = None
+
+        for violation in self.violations:
+            if violation.path != current_path:
+                current_path = violation.path
+                blocks.append(f"{current_path}:")
+
+            blocks.append(str(violation))
+
+        return "\n\n".join(blocks)
+
+    def extend(self, others: "Violations") -> None:
+        """Take in another document's violations, keeping them in reading order."""
+        self.violations = sorted(
+            [*self.violations, *others],
+            key=lambda violation: (
+                violation.path is not None,
+                str(violation.path),
+                violation.line is not None,
+                violation.line,
+                violation.offset,
+            ),
         )
-
-    lines = [violation.render_text() for violation in violations]
-    lines.append(f"Found {len(violations)} violations.")
-
-    return "\n".join(lines)

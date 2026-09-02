@@ -1,141 +1,83 @@
-"""Judge rules with Claude."""
+"""Judge the model rules with Claude."""
 
 import logging
 from collections.abc import Sequence
 from enum import StrEnum
-from importlib import resources
-from typing import Literal
+from functools import lru_cache
 
+import jinja2
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
-from jinja2 import Environment, StrictUndefined
-from pydantic import BaseModel, ConfigDict, create_model
+from pydantic import BaseModel
 
 from nll.document import Document
-from nll.rules import RuleBook
-from nll.violations import Violation
+from nll.rules import ModelRule
+from nll.violations import Violation, Violations
 
 logger = logging.getLogger(__name__)
 
-TEMPLATES = Environment(undefined=StrictUndefined, autoescape=False)
-PROMPT_TEMPLATE = resources.files("nll").joinpath("resources", "prompt.md.j2")
 
-Effort = Literal["low", "medium", "high", "xhigh", "max"]
+@lru_cache(maxsize=1)
+def _prepare_env() -> jinja2.Environment:
+    jinja_logging_undef = jinja2.make_logging_undefined(
+        logger=logger, base=jinja2.Undefined
+    )
+    env = jinja2.Environment(
+        trim_blocks=True,
+        lstrip_blocks=True,
+        undefined=jinja_logging_undef,
+        autoescape=jinja2.select_autoescape(
+            disabled_extensions=(".md.j2"), default_for_string=False, default=False
+        ),
+        loader=jinja2.PackageLoader("nll", package_path="resources/templates/"),
+    )
+    return env
 
 
-class ReportedViolation(BaseModel):
+class Effort(StrEnum):
+    """Effort level the judge runs the model at."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    XHIGH = "xhigh"
+    MAX = "max"
+
+
+class ReportedViolation[IdentifierT](BaseModel):
     """Carry a violation as the model reports it, before its quote is located."""
 
-    model_config = ConfigDict(use_enum_values=True)
-
-    code: str
+    identifier: IdentifierT
     quote: str
-    message: str
-    suggestion: str | None = None
-
-    def locate_in(self, document: Document) -> Violation:
-        """Turn the report into a violation positioned at its quote."""
-        position = document.locate(self.quote)
-        if position is None:
-            logger.warning(
-                "%s: could not locate the quoted span for %s: %r",
-                document.path,
-                self.code,
-                self.quote,
-            )
-
-        # The prompt tells the model an empty suggestion means the span goes.
-        suggestion = "Delete the span" if self.suggestion == "" else self.suggestion
-
-        return Violation(
-            code=self.code,
-            path=document.path,
-            position=position,
-            message=self.message,
-            quote=self.quote,
-            suggestion=suggestion,
-        )
 
 
-class Report(BaseModel):
+class Report[IdentifierT](BaseModel):
     """Carry what the model returns for one document."""
 
-    violations: list[ReportedViolation]
-
-
-def build_report_model(codes: Sequence[str]) -> type[Report]:
-    """Derive a Report whose violations may only carry the given rule codes.
-
-    An enum, rather than a Literal, so the JSON schema says `enum` even for a
-    single code. The value is stored as a plain string.
-    """
-    rule_code = StrEnum("RuleCode", {code: code for code in codes})  # type: ignore[misc]
-    reported = create_model(
-        "ReportedViolation", __base__=ReportedViolation, code=(rule_code, ...)
-    )
-
-    return create_model("Report", __base__=Report, violations=(list[reported], ...))
-
-
-async def run_query(
-    prompt: str, options: ClaudeAgentOptions, path: str
-) -> ResultMessage:
-    """Run one query and return its result message."""
-    result: ResultMessage | None = None
-    async for message in query(prompt=prompt, options=options):
-        if isinstance(message, ResultMessage):
-            result = message
-
-    if result is None:
-        raise RuntimeError(f"{path}: the model session ended without a result message")
-
-    if (
-        result.is_error
-        or result.subtype != "success"
-        or result.structured_output is None
-    ):
-        raise RuntimeError(
-            f"{path}: model run failed with subtype {result.subtype!r}, "
-            f"errors {result.errors!r}"
-        )
-
-    logger.info(
-        "%s: %s answered in %.1fs, %d turns, cost %s USD",
-        path,
-        "unknown model"
-        if result.model_usage is None
-        else ", ".join(result.model_usage),
-        result.duration_ms / 1000,
-        result.num_turns,
-        "unknown" if result.total_cost_usd is None else f"{result.total_cost_usd:.4f}",
-    )
-
-    return result
+    violations: list[ReportedViolation[IdentifierT]]
 
 
 class ModelJudge:
-    """Ask the model which of the enabled model rules a document breaks.
+    """Ask the model which of the rules it is given a document breaks."""
 
-    The prompt and the output schema depend only on the rules, so they are built
-    once here and reused for every document.
-    """
-
-    def __init__(self, rules: RuleBook, model: str, effort: Effort):
-        codes = [rule.code for rule in rules.model_rules]
-        if len(codes) == 0:
-            raise ValueError("no enabled rule is judged by the model")
-
+    def __init__(self, rules: Sequence[ModelRule], model: str, model_effort: Effort):
+        self.rules = {rule.identifier: rule for rule in rules}
         self.model = model
-        self.effort = effort
-        self.rule_count = len(codes)
-        self.report_model = build_report_model(codes)
-        self.system_prompt = TEMPLATES.from_string(PROMPT_TEMPLATE.read_text()).render(
-            rules=rules.render_model_rules_as_markdown()
+        self.model_effort = model_effort
+        rule_names = {name: name for name in self.rules}
+        rule_identifier = StrEnum("rule_identifier", rule_names)
+        self.report_model = Report[rule_identifier]
+
+        jinja_env = _prepare_env()
+        logger.debug("Rendering system prompt")
+        self.system_prompt = (
+            jinja_env.get_template("prompt.md.j2").render(rules=rules).strip()
         )
-        self.options = ClaudeAgentOptions(
+
+        self.claude_options = ClaudeAgentOptions(
             system_prompt=self.system_prompt,
             tools=[],
             model=model,
-            effort=effort,
+            effort=model_effort.value,
             setting_sources=None,
             output_format={
                 "type": "json_schema",
@@ -143,23 +85,81 @@ class ModelJudge:
             },
         )
 
-    async def judge(self, document: Document, prose: str) -> list[Violation]:
-        """Run one model call over the prose and locate what it reports."""
+    async def __call__(self, document: Document) -> Violations:
+        """Run one model call over the document and locate what it reports."""
+        path = document.path
+
         logger.info(
             "%s: judging %d rules over %d characters (model=%s, effort=%s)",
-            document.path,
-            self.rule_count,
-            len(prose),
+            path,
+            len(self.rules),
+            len(document.prose),
             self.model,
-            self.effort,
+            self.model_effort,
         )
 
-        prompt = f"Lint the following text.\n\n<text>\n{prose}\n</text>"
-        result = await run_query(prompt, self.options, document.path)
+        prompt = f"Lint the following text.\n\n<text>\n{document.prose}\n</text>"
+
+        result: ResultMessage | None = None
+
+        async for message in query(prompt=prompt, options=self.claude_options):
+            if isinstance(message, ResultMessage):
+                result = message
+
+        if result is None:
+            raise RuntimeError(
+                f"{path}: the model session ended without a result message"
+            )
+
+        if (
+            result.is_error
+            or result.subtype != "success"
+            or result.structured_output is None
+        ):
+            raise RuntimeError(
+                f"{path}: model run failed with subtype {result.subtype!r}, "
+                f"errors {result.errors!r}"
+            )
+
+        logger.info(
+            "%s: linted in %.1fs, cost %s",
+            path,
+            result.duration_ms / 1000,
+            (
+                "unknown"
+                if result.total_cost_usd is None
+                else f"{result.total_cost_usd:.4f} USD"
+            ),
+        )
 
         report = self.report_model.model_validate(result.structured_output)
-        logger.info(
-            "%s: model rules found %d violations", document.path, len(report.violations)
+
+        logger.info("%s: the model found %d violations", path, len(report.violations))
+
+        return Violations(
+            self.locate(reported, document) for reported in report.violations
         )
 
-        return [reported.locate_in(document) for reported in report.violations]
+    def locate(self, reported: ReportedViolation, document: Document) -> Violation:
+        """Place a reported violation at the line its quote sits on."""
+        rule = self.rules[reported.identifier]
+
+        for line_number, line in enumerate(document.lines, start=1):
+            index = line.find(reported.quote)
+
+            if index != -1:
+                return Violation(
+                    rule=rule,
+                    path=document.path,
+                    line=line_number,
+                    offset=index + 1,
+                    quote=reported.quote,  # should it be line?
+                )
+
+        logger.error(
+            "%s: could not find the span reported for %s: %r",
+            document.path,
+            reported.identifier,
+            reported.quote,
+        )
+        raise RuntimeError("Could not find the quote in the document.")

@@ -3,7 +3,7 @@ name = "nll"
 version = "0.1.0"
 description = "Lint prose against a configurable set of style rules, judged by Claude."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "CrossNox", email = "ijmermet@gmail.com" }]
@@ -34,7 +34,13 @@ Issues = "https://github.com/CrossNox/nll/issues"
 nll = "nll.cli:app"
 
 [dependency-groups]
-dev = ["mypy>=1.14", "pytest>=8", "ruff>=0.15"]
+dev = [
+    "mypy>=1.14",
+    "pycln>=2.6.0",
+    "pytest>=8",
+    "ruff>=0.15",
+    "ty>=0.0.77",
+]
 
 [tool.ruff]
 line-length = 88

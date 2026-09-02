@@ -1,4 +1,8 @@
-"""Find and read the configuration files."""
+"""Find and parse the configuration file.
+
+One file is the whole configuration: the project's, the user's, or the shipped
+one. Nothing is layered.
+"""
 
 import logging
 import os
@@ -7,14 +11,10 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from nll.checks import PYTHON_CHECKS
-from nll.rules import RuleBook
-
 logger = logging.getLogger(__name__)
 
 NLL_CONFIG_FILE_NAME = "nll.toml"
 PYPROJECT_FILE_NAME = "pyproject.toml"
-RULES_KEY = "rules"
 SHIPPED_CONFIG_FILE = Path(
     str(resources.files("nll").joinpath("resources", "config.toml"))
 )
@@ -34,11 +34,12 @@ def has_nll_section(pyproject: Path) -> bool:
         return "nll" in tomllib.load(handle).get("tool", {})
 
 
-def discover_config_file(start: Path) -> Path | None:
-    """Find the config file that applies to `start`, or None for the shipped one.
+def discover_config_file(start: Path) -> Path:
+    """Find the config file to be used, starting at a given directory.
 
     Walking upward, a pyproject.toml with a [tool.nll] table wins over an
-    nll.toml in the same directory. Below both comes the user config.
+    nll.toml in the same directory. Below both comes the user config, and
+    below that the shipped config.
     """
     for directory in (start, *start.parents):
         pyproject = directory / PYPROJECT_FILE_NAME
@@ -55,22 +56,28 @@ def discover_config_file(start: Path) -> Path | None:
             )
 
         if pyproject_applies:
+            logger.info("Using pyproject.toml at %s", pyproject)
             return pyproject
 
         if nll_config.is_file():
+            logger.info("Using nll.toml at %s", nll_config)
             return nll_config
 
     user_file = locate_user_config_file()
     if user_file.is_file():
+        logger.info("Using user config at %s", user_file)
         return user_file
 
-    return None
+    logger.info("Using default config at %s", SHIPPED_CONFIG_FILE)
+    return SHIPPED_CONFIG_FILE
 
 
 def read_config_file(path: Path) -> dict[str, Any]:
-    """Parse one config file, unwrapping [tool.nll] for pyproject.toml."""
+    """Parse the config file, unwrapping [tool.nll] for pyproject.toml."""
     with path.open("rb") as handle:
         data = tomllib.load(handle)
+
+    logger.info("Settings loaded from %s", path)
 
     if path.name != PYPROJECT_FILE_NAME:
         return data
@@ -80,33 +87,3 @@ def read_config_file(path: Path) -> dict[str, Any]:
         raise ValueError(f"{path}: no [tool.nll] table")
 
     return section
-
-
-def read_config_layers(config_file: Path | None) -> dict[str, Any]:
-    """Read the shipped config, then `config_file` over it, key by key.
-
-    The `rules` entry of the result is a RuleBook. The Python checks bind to
-    the shipped rules by code. A user file may add model-judged groups and set
-    options of existing rules.
-    """
-    settings = read_config_file(SHIPPED_CONFIG_FILE)
-    rules = RuleBook.from_toml(
-        settings.pop(RULES_KEY, {}), PYTHON_CHECKS, str(SHIPPED_CONFIG_FILE)
-    )
-
-    unbound = PYTHON_CHECKS.keys() - {rule.code for rule in rules}
-    if len(unbound) > 0:
-        raise ValueError(
-            f"{SHIPPED_CONFIG_FILE}: no rule for the Python checks "
-            + ", ".join(sorted(unbound))
-        )
-
-    if config_file is not None:
-        overrides = read_config_file(config_file)
-        rules = rules.merge(overrides.pop(RULES_KEY, {}), str(config_file))
-        settings.update(overrides)
-        logger.info("Settings loaded from %s", config_file)
-
-    settings[RULES_KEY] = rules
-
-    return settings
