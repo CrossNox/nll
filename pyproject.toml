@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
   "claude-agent-sdk>=0.2.148",
   "jinja2>=3",
+  "openai-codex>=0.147.0",
   "pydantic>=2",
   "python-json-logger>=3",
   "rich>=13",
