@@ -23,16 +23,12 @@ class Violation:
         if self.line is None or self.offset is None or self.quote is None:
             return str(self.rule)
 
-        elided = max(self.offset - 4, 0)
-        quote = self.quote[elided:]
+        quote = self.quote
 
         if len(quote) > QUOTE_WIDTH:
             quote = f"{quote[:QUOTE_WIDTH]}...[{len(quote) - QUOTE_WIDTH} chars]"
 
-        if elided > 0:
-            quote = f"[{elided} chars]...{quote}"
-
-        return f"line {self.line}:\n\n> {quote}\n\n{self.rule}"
+        return f"line {self.line}:\n\t> {quote}\n{self.rule}"
 
 
 class Violations:
@@ -66,9 +62,10 @@ class Violations:
         for violation in self.violations:
             if violation.path != current_path:
                 current_path = violation.path
-                blocks.append(f"{current_path}:")
+                underline = "=" * (len(str(current_path)) + 1)
+                blocks.append(f"{current_path}\n{underline}")
 
-            blocks.append(str(violation))
+            blocks.append(f"{violation}")
 
         return "\n\n".join(blocks)
 

@@ -24,7 +24,13 @@ class ForbiddenCharacter(CodeRule, identifier=None):
 
             while index != -1:
                 violations.append(
-                    Violation(rule=self, line=line_number, offset=index + 1)
+                    Violation(
+                        rule=self,
+                        path=document.path,
+                        line=line_number,
+                        offset=index + 1,
+                        quote=line,
+                    )
                 )
                 index = line.find(self.character, index + 1)
 
@@ -66,7 +72,15 @@ class OtherNonAscii(CodeRule, identifier="CHR000"):
                 if found.isascii() or found in covered:
                     continue
 
-                violations.append(Violation(rule=self, line=line_number, offset=offset))
+                violations.append(
+                    Violation(
+                        rule=self,
+                        path=document.path,
+                        line=line_number,
+                        offset=offset,
+                        quote=line,
+                    )
+                )
 
         return Violations(violations)
 
@@ -84,4 +98,4 @@ class TooManySentences(CodeRule, identifier="LEN001"):
         if len(sentences) <= self.arguments["max_sentences"]:
             return Violations([])
 
-        return Violations([Violation(rule=self)])
+        return Violations([Violation(rule=self, path=document.path)])

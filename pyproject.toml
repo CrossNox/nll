@@ -34,17 +34,11 @@ Issues = "https://github.com/CrossNox/nll/issues"
 nll = "nll.cli:app"
 
 [dependency-groups]
-dev = [
-    "mypy>=1.14",
-    "pycln>=2.6.0",
-    "pytest>=8",
-    "ruff>=0.15",
-    "ty>=0.0.77",
-]
+dev = ["mypy>=1.14", "pycln>=2.6.0", "pytest>=8", "ruff>=0.15", "ty>=0.0.77"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py312"
 force-exclude = true
 
 [tool.ruff.lint]
