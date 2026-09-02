@@ -6,6 +6,8 @@ from typing import Annotated
 
 import typer
 
+from nll.agents import Agent
+from nll.agents import install_hook as install_agent_hook
 from nll.config import SHIPPED_CONFIG_FILE, discover_config_file
 from nll.judge import Effort
 from nll.linter import Linter
@@ -66,6 +68,7 @@ IncludeExtensionOption = Annotated[
         help="Extensions linted when a directory is given, replacing the config's.",
     ),
 ]
+
 
 @app.callback()
 def main(
@@ -158,3 +161,17 @@ def list_rules(
 def print_shipped_config() -> None:
     """Print the shipped config, to copy and edit: nll config > nll.toml."""
     print(SHIPPED_CONFIG_FILE.read_text(encoding="utf-8"), end="")
+
+
+@app.command()
+def install_hook(
+    agent: Agent,
+    local: bool = typer.Option(
+        False,
+        "--local/--global",
+        help="Install in the current project or in your home directory.",
+    ),
+) -> None:
+    """Install nll as hook for your coding agent."""
+    command_path = install_agent_hook(agent, local=local)
+    typer.echo(f"Installed nll command at {command_path}")
