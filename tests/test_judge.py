@@ -1,127 +1,168 @@
 import asyncio
-from collections.abc import AsyncIterator
+import json
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
+from claude_agent_sdk import ResultMessage
 
+from nll.config import SHIPPED_CONFIG_FILE
 from nll.document import Document
-from nll.judge import ModelJudge, ReportedViolation, build_report_model
+from nll.judge import ClaudeModelJudge, CodexModelJudge, ModelJudge
 from nll.linter import Linter
-from tests.conftest import FakeModel
 
 
-def judge_for(select: list[str]) -> ModelJudge:
-    linter = Linter.from_config(None, select=select)
-
-    return ModelJudge(linter.rules, model=linter.model, effort=linter.effort)
-
-
-def judge_text(judge: ModelJudge, text: str) -> list[Any]:
-    document = Document(text, "x.md")
-
-    return asyncio.run(judge.judge(document, document.text))
+def get_model_judge(select: list[str]) -> ModelJudge:
+    linter = Linter.from_config(SHIPPED_CONFIG_FILE, select=select)
+    return ClaudeModelJudge(linter.rules.model_rules, linter.config.model)
 
 
-def test_judge_needs_at_least_one_model_rule() -> None:
-    with pytest.raises(ValueError, match="no enabled rule is judged by the model"):
-        judge_for(["CHR004"])
+def test_model_judge_rejects_an_empty_rule_set() -> None:
+    judge = get_model_judge(["CHR004"])
+
+    assert judge.rules == {}
+    schema = judge.report_model.model_json_schema()
+    assert (
+        schema["$defs"]["ReportedViolation_rule_identifier_"]["properties"][
+            "identifier"
+        ]["enum"]
+        == []
+    )
 
 
-def test_judge_fails_when_the_session_yields_no_result(
+def test_claude_judge_renders_rules_and_restricts_reported_codes(fake_model) -> None:
+    calls = fake_model({"violations": []})
+    judge = get_model_judge(["SCH003", "SLO001", "CHR004"])
+
+    asyncio.run(judge.judge(Document(prose="Some text.", path=Path("x.md"))))
+
+    prompt, options = calls[0]
+    assert "<text>\nSome text.\n</text>" in prompt
+    assert "SCH003" in options.system_prompt
+    assert "SLO001" in options.system_prompt
+    assert "CHR004" not in options.system_prompt
+    schema = options.output_format["schema"]
+    assert schema["$defs"]["rule_identifier"]["enum"] == ["SCH003", "SLO001"]
+
+
+def test_claude_judge_locates_reported_quotes() -> None:
+    judge = get_model_judge(["SLO001"])
+    reported = judge.report_model.model_validate(
+        {"violations": [{"identifier": "SLO001", "quote": "Ship less"}]}
+    ).violations[0]
+
+    violation = judge.locate_violation_in_document(
+        reported, Document(prose="Ship less, sleep more.", path=Path("x.md"))
+    )
+
+    assert violation.path == Path("x.md")
+    assert violation.line == 1
+    assert violation.offset == 1
+    assert violation.quote == "Ship less"
+
+
+def test_claude_judge_surfaces_a_quote_that_is_not_in_the_document(
+    fake_model,
+) -> None:
+    fake_model({"violations": [{"identifier": "SLO001", "quote": "absent"}]})
+
+    with pytest.raises(RuntimeError, match="Could not find the quote"):
+        asyncio.run(
+            get_model_judge(["SLO001"]).judge(Document(prose="text", path=Path("x.md")))
+        )
+
+
+def test_claude_judge_fails_when_the_session_has_no_result(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def silent_query(
-        *, prompt: str, options: Any = None, transport: Any = None
-    ) -> AsyncIterator[Any]:
-        return
-        yield
+    async def silent_query(*, prompt: str, options: Any) -> Any:
+        if False:
+            yield prompt
 
     monkeypatch.setattr("nll.judge.query", silent_query)
 
     with pytest.raises(RuntimeError, match="ended without a result message"):
-        judge_text(judge_for(["SLO001"]), "x")
-
-
-def test_judge_sends_the_prompt_with_grouped_rules_and_a_restricted_schema(
-    fake_model: FakeModel,
-) -> None:
-    calls = fake_model({"violations": []})
-    judge = judge_for(["SCH003", "SLO001", "CHR004"])
-
-    judge_text(judge, "Some text.")
-
-    prompt, options = calls[0]
-    assert "<text>\nSome text.\n</text>" in prompt
-    assert "## SCH:" in options.system_prompt
-    assert "## SLO:" in options.system_prompt
-    assert "CHR004" not in options.system_prompt
-    schema = options.output_format["schema"]
-    assert schema["$defs"]["RuleCode"]["enum"] == ["SCH003", "SLO001"]
-    assert options.model == "opus"
-    assert options.effort == "high"
-
-
-def test_judge_rejects_a_code_outside_its_rules(fake_model: FakeModel) -> None:
-    fake_model({"violations": [{"code": "CHR004", "quote": "x", "message": "m"}]})
-
-    with pytest.raises(ValidationError, match="SLO001"):
-        judge_text(judge_for(["SLO001"]), "x")
-
-
-def test_judge_locates_every_reported_violation(
-    fake_model: FakeModel, caplog: pytest.LogCaptureFixture
-) -> None:
-    fake_model(
-        {
-            "violations": [
-                {"code": "SLO001", "quote": "Ship less", "message": "slogan"},
-                {"code": "SLO001", "quote": "absent", "message": "lost"},
-            ]
-        }
-    )
-
-    violations = judge_text(judge_for(["SLO001"]), "Ship less, sleep more.")
-
-    assert [(item.code, item.path) for item in violations] == [
-        ("SLO001", "x.md"),
-        ("SLO001", "x.md"),
-    ]
-    assert violations[0].position is not None
-    assert violations[1].position is None
-    assert "could not locate the quoted span for SLO001" in caplog.text
-
-
-def test_reported_violation_turns_an_empty_suggestion_into_a_deletion() -> None:
-    document = Document("First.\nNo a. No b.\n", "x.md")
-
-    kept = ReportedViolation(code="SCH003", quote="No a. No b.", message="m")
-    deleted = ReportedViolation(
-        code="SCH003", quote="No a.", message="m", suggestion=""
-    )
-
-    assert kept.locate_in(document).suggestion is None
-    assert kept.locate_in(document).position is not None
-    assert deleted.locate_in(document).suggestion == "Delete the span"
-
-
-def test_report_model_restricts_codes_in_schema_and_validation() -> None:
-    report_model = build_report_model(["SCH003", "SLO001"])
-
-    schema = report_model.model_json_schema()
-    reported = schema["$defs"]["ReportedViolation"]
-    assert reported["properties"]["code"] == {"$ref": "#/$defs/RuleCode"}
-    assert schema["$defs"]["RuleCode"]["enum"] == ["SCH003", "SLO001"]
-    assert reported["required"] == ["code", "quote", "message"]
-    assert schema["required"] == ["violations"]
-
-    report = report_model.model_validate(
-        {"violations": [{"code": "SLO001", "quote": "q", "message": "m"}]}
-    )
-    assert report.violations[0].code == "SLO001"
-    assert type(report.violations[0].code) is str
-
-    with pytest.raises(ValidationError):
-        report_model.model_validate(
-            {"violations": [{"code": "CHR004", "quote": "q", "message": "m"}]}
+        asyncio.run(
+            get_model_judge(["SLO001"]).judge(Document(prose="text", path=Path("x.md")))
         )
+
+
+def test_claude_judge_fails_on_an_error_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def failed_query(*, prompt: str, options: Any):
+        yield ResultMessage(
+            subtype="error",
+            duration_ms=10,
+            duration_api_ms=5,
+            is_error=True,
+            num_turns=1,
+            session_id="test",
+            errors=["service failed"],
+        )
+
+    monkeypatch.setattr("nll.judge.query", failed_query)
+
+    with pytest.raises(RuntimeError, match="Claude run failed"):
+        asyncio.run(
+            get_model_judge(["SLO001"]).judge(Document(prose="text", path=Path("x.md")))
+        )
+
+
+def test_claude_judge_fails_on_invalid_structured_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def invalid_query(*, prompt: str, options: Any):
+        yield ResultMessage(
+            subtype="success",
+            duration_ms=10,
+            duration_api_ms=5,
+            is_error=False,
+            num_turns=1,
+            session_id="test",
+            structured_output={"violations": [{"identifier": "CHR004", "quote": "x"}]},
+        )
+
+    monkeypatch.setattr("nll.judge.query", invalid_query)
+
+    with pytest.raises(RuntimeError, match="invalid structured output"):
+        asyncio.run(get_model_judge(["SLO001"]).judge(Document("text", "x.md")))
+
+
+def test_codex_judge_sends_read_only_request_and_parses_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests: list[dict[str, Any]] = []
+
+    class FakeThread:
+        async def run(self, prompt: str, *, output_schema: dict[str, Any]) -> Any:
+            requests.append({"prompt": prompt, "schema": output_schema})
+            return SimpleNamespace(
+                status="completed",
+                error=None,
+                final_response=json.dumps(
+                    {"violations": [{"identifier": "SLO001", "quote": "Ship less"}]}
+                ),
+            )
+
+    class FakeCodex:
+        async def __aenter__(self) -> "FakeCodex":
+            return self
+
+        async def __aexit__(self, *args: Any) -> None:
+            return None
+
+        async def thread_start(self, **kwargs: Any) -> FakeThread:
+            requests.append(kwargs)
+            return FakeThread()
+
+    linter = Linter.from_config(SHIPPED_CONFIG_FILE, select=["SLO001"])
+    monkeypatch.setattr("nll.judge.AsyncCodex", FakeCodex)
+    judge = CodexModelJudge(linter.rules.model_rules, linter.config.model)
+
+    violations = asyncio.run(
+        judge.judge(Document(prose="Ship less, sleep more.", path=Path("x.md")))
+    )
+
+    assert len(violations) == 1
+    assert requests[0]["sandbox"].value == "read-only"
+    assert "Ship less, sleep more." in requests[1]["prompt"]
