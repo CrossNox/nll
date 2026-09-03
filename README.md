@@ -2,7 +2,7 @@
 
 Lint prose against a rule set and get the violations in the `path:line:col: CODE message` layout linters use.
 
-Character and length rules are checked in Python. Rhetorical schemes, slogans, Zinsser's principles and concision are judged by Claude through the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk), which reuses the `claude` CLI login on the machine.
+Character and length rules are checked in Python. Rhetorical schemes, slogans, Zinsser's principles and concision are judged by Claude by default. You can select Codex with `--agent codex` or `agent = "codex"`. nll uses the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk) or the [Codex Python SDK](https://github.com/openai/codex/tree/main/sdk/python) and passes the configured model to the selected backend.
 
 ## Install
 
@@ -10,17 +10,21 @@ Character and length rules are checked in Python. Rhetorical schemes, slogans, Z
 uv tool install nll
 ```
 
-The model-judged rules need a working `claude` login (run `claude` once, interactively) or an `ANTHROPIC_API_KEY` in the environment.
+Claude model-judged rules need a working `claude` login or an `ANTHROPIC_API_KEY`. Codex reuses the local Codex session. The Codex SDK also supports API-key authentication through its documented login flow.
+
+`model` is passed to the selected backend. If it is not set, nll uses `claude-opus-5` for Claude and `gpt-5.6-luna` for Codex. Set `model` when you need another model.
 
 ## Use
 
 ```sh
 nll lint notes.md
+nll lint --agent codex --model gpt-5-codex notes.md
 nll lint docs/
 nll lint --select CHR --extend-select LEN001 notes.md
 echo "text" | nll lint
 nll lint --output-format json notes.md
 nll rules
+nll config > nll.toml
 nll -v lint notes.md
 ```
 
@@ -44,7 +48,7 @@ Found 2 violations.
 
 ## Configure
 
-nll walks up from the working directory looking for a `pyproject.toml` with a `[tool.nll]` table or an `nll.toml`. When a directory has both, the `pyproject.toml` wins and nll logs a warning. If neither is found, it reads `$XDG_CONFIG_HOME/nll/config.toml` (`~/.config/nll/config.toml` when the variable is unset). Each key in that file overrides the matching shipped default. The defaults are [`nll/resources/config.toml`](nll/resources/config.toml):
+nll reads one config file and nothing else. It walks up from the working directory looking for a `pyproject.toml` with a `[tool.nll]` table or an `nll.toml`. When a directory has both, the `pyproject.toml` wins and nll logs a warning. If neither is found, it reads `$XDG_CONFIG_HOME/nll/config.toml` (`~/.config/nll/config.toml` when the variable is unset), and failing that the shipped [`nll/resources/config.toml`](nll/resources/config.toml). Your file is the whole configuration, so start from a copy of the shipped one (`nll config > nll.toml`) and edit it:
 
 ```toml
 # Prefixes expand: SCH means every SCH rule.
@@ -53,9 +57,10 @@ select = ["SCH", "SLO", "ZIN", "CHR", "LEN"]
 extend-select = []
 ignore = ["CHR000", "LEN001"]
 
-# Model alias or id passed to the claude CLI, and its effort level.
-model = "opus"
-effort = "high"
+# Agent used for model-judged rules. The model defaults to the selected agent.
+agent = "claude"
+# Optional model alias or id passed to the selected backend.
+# model = "claude-opus-5"
 
 # Skip fenced code blocks and inline code for every rule, the model included.
 ignore-code = true
@@ -69,10 +74,11 @@ include = ["*.md", "*.txt", "*.rst"]
 # The built-in rules follow, under [rules.<PREFIX>].
 ```
 
-A rule with options is a table under its group. To change an option of a built-in rule, set it under the same path in your file:
+A rule with options is a table under its group. To change an option of a built-in rule, edit the value in your file:
 
 ```toml
 [rules.LEN.001]
+description = "The text has more than {max_sentences} sentences."
 max-sentences = 5
 ```
 
@@ -91,7 +97,7 @@ description = "Wording that must not leak infrastructure details"
 abc = "Shows a credential or token in an example"
 ```
 
-That defines `SEC001` and `SECabc`, judged by the model. nll shows the group description to the model above its rules, so make it say what the group is for. Group prefixes are uppercase letters and cannot repeat a built-in group.
+That defines `SEC001` and `SECabc`, judged by the model. nll shows the group description to the model above its rules, so make it say what the group is for. Group prefixes are uppercase letters.
 
 A description can name the rule's options in braces. Write an option name with underscores, so `max-sentences` becomes `{max_sentences}` and `"More than {max_sentences} sentences."` renders with the configured value. nll accepts options only on rules that declare them (`PYTHON_CHECKS` in `nll/checks.py`).
 
@@ -126,7 +132,7 @@ A description can name the rule's options in braces. Write an option name with u
 ```sh
 uv sync --group dev
 uv run pytest
-uv run mypy
+uv run ty check nll
 uv run ruff check
 uv run ruff format
 uv tool install --editable .

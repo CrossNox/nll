@@ -1,13 +1,13 @@
 [project]
 name = "nll"
 version = "0.1.0"
-description = "Lint prose against a configurable set of style rules, judged by Claude."
+description = "Lint prose against a configurable set of style rules, judged by Claude or Codex."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "CrossNox", email = "ijmermet@gmail.com" }]
-keywords = ["lint", "prose", "writing", "style", "claude"]
+keywords = ["lint", "prose", "writing", "style", "claude", "codex"]
 classifiers = [
   "Environment :: Console",
   "Intended Audience :: Developers",
@@ -35,7 +35,12 @@ Issues = "https://github.com/CrossNox/nll/issues"
 nll = "nll.cli:app"
 
 [dependency-groups]
-dev = ["mypy>=1.14", "pycln>=2.6.0", "pytest>=8", "ruff>=0.15", "ty>=0.0.77"]
+dev = [
+ "pycln>=2.6.0",
+ "pytest>=8",
+ "ruff>=0.15",
+ "ty>=0.0.77",
+]
 
 [tool.ruff]
 line-length = 88
@@ -69,11 +74,6 @@ convention = "pep257"
 # the linter's own subject matter: the CHR rules and their fixtures are these characters
 "nll/checks.py" = ["RUF001"]
 "tests/*.py" = ["RUF001"]
-
-[tool.mypy]
-strict = true
-files = ["nll", "tests"]
-plugins = ["pydantic.mypy"]
 
 [build-system]
 requires = ["uv_build>=0.11,<0.12"]

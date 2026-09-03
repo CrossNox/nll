@@ -8,9 +8,10 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, ValidationError
 
+from nll.agents import Agent
 from nll.config import SHIPPED_CONFIG_FILE, read_config_file
 from nll.document import Document
-from nll.judge import Effort, ModelJudge
+from nll.judge import ModelJudge
 from nll.rules import RuleBook, RulesDefinitions
 from nll.violations import Violations
 
@@ -43,7 +44,7 @@ def apply_settings_overrides(
     extend_select: Sequence[str] | None = None,
     ignore: Sequence[str] | None = None,
     model: str | None = None,
-    model_effort: Effort | None = None,
+    agent: Agent | None = None,
     max_concurrency: int | None = None,
     include_extensions: Sequence[str] | None = None,
 ) -> dict[str, Any]:
@@ -53,7 +54,7 @@ def apply_settings_overrides(
         "extend-select": extend_select,
         "ignore": ignore,
         "model": model,
-        "model-effort": model_effort,
+        "agent": agent,
         "max-concurrency": max_concurrency,
         "include-extensions": include_extensions,
     }
@@ -72,8 +73,8 @@ class LinterConfig(BaseModel):
     extend_select: list[str] = Field(alias="extend-select")
     ignore: list[str]
 
-    model: str
-    effort: Effort = Field(alias="model-effort")
+    agent: Agent
+    model: str | None = None
 
     max_concurrency: PositiveInt = Field(alias="max-concurrency")
     include_extensions: list[str] = Field(alias="include-extensions")
@@ -102,7 +103,7 @@ class Linter:
         extend_select: Sequence[str] | None = None,
         ignore: Sequence[str] | None = None,
         model: str | None = None,
-        model_effort: Effort | None = None,
+        agent: Agent | None = None,
         max_concurrency: int | None = None,
         include_extensions: Sequence[str] | None = None,
     ) -> "Linter":
@@ -115,7 +116,7 @@ class Linter:
             extend_select=extend_select,
             ignore=ignore,
             model=model,
-            model_effort=model_effort,
+            agent=agent,
             max_concurrency=max_concurrency,
             include_extensions=include_extensions,
         )
@@ -152,8 +153,8 @@ class Linter:
         if len(self.rules.model_rules) > 0:
             llm_judge = ModelJudge(
                 self.rules.model_rules,
+                agent=self.config.agent,
                 model=self.config.model,
-                model_effort=self.config.effort,
             )
 
             violations.extend(await llm_judge(document))

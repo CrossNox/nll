@@ -2,14 +2,13 @@
 
 import pathlib as pl
 import sys
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 import typer
 
 from nll.agents import Agent
 from nll.agents import install_hook as install_agent_hook
 from nll.config import SHIPPED_CONFIG_FILE, discover_config_file
-from nll.judge import Effort
 from nll.linter import Linter
 from nll.logconfig import (
     DEFAULT_PRETTY,
@@ -19,11 +18,26 @@ from nll.logconfig import (
 )
 
 app = typer.Typer(
-    add_completion=False,
+    add_completion=True,
     pretty_exceptions_show_locals=False,
     pretty_exceptions_short=True,
     pretty_exceptions_enable=False,
 )
+
+
+def format_error_message(error: BaseException) -> str:
+    """Format an application error without its traceback."""
+    if isinstance(error, BaseExceptionGroup):
+        return "\n".join(format_error_message(item) for item in error.exceptions)
+
+    return str(error)
+
+
+def exit_with_error(error: BaseException) -> NoReturn:
+    """Print an application error and exit with a failure status."""
+    typer.echo(f"Error: {format_error_message(error)}", err=True)
+    raise typer.Exit(code=2)
+
 
 PathsArgument = Annotated[
     list[pl.Path] | None,
@@ -54,8 +68,8 @@ IgnoreOption = Annotated[
 ModelOption = Annotated[
     str | None, typer.Option(help="Model alias or id the judge calls.")
 ]
-EffortOption = Annotated[
-    Effort | None, typer.Option(help="Effort level the judge runs at.")
+AgentOption = Annotated[
+    Agent | None, typer.Option(help="Model agent to use for model-judged rules.")
 ]
 MaxConcurrencyOption = Annotated[
     int | None,
@@ -103,32 +117,35 @@ def lint(
     extend_select: ExtendSelectOption = None,
     ignore: IgnoreOption = None,
     model: ModelOption = None,
-    model_effort: EffortOption = None,
+    agent: AgentOption = None,
     max_concurrency: MaxConcurrencyOption = None,
     include_extensions: IncludeExtensionOption = None,
 ) -> None:
     """Lint files and print the violations. Exits with 1 when any is reported."""
-    if config_file is None:
-        config_file = discover_config_file(pl.Path.cwd())
+    try:
+        if config_file is None:
+            config_file = discover_config_file(pl.Path.cwd())
 
-    linter = Linter.from_config(
-        config_file,
-        select=select,
-        extend_select=extend_select,
-        ignore=ignore,
-        model=model,
-        model_effort=model_effort,
-        max_concurrency=max_concurrency,
-        include_extensions=include_extensions,
-    )
+        linter = Linter.from_config(
+            config_file,
+            select=select,
+            extend_select=extend_select,
+            ignore=ignore,
+            model=model,
+            agent=agent,
+            max_concurrency=max_concurrency,
+            include_extensions=include_extensions,
+        )
 
-    if paths is None:
-        if sys.stdin.isatty():
-            raise typer.BadParameter("no paths given and nothing piped to stdin")
+        if paths is None:
+            if sys.stdin.isatty():
+                raise typer.BadParameter("no paths given and nothing piped to stdin")
 
-        violations = linter.lint_text(sys.stdin.read())
-    else:
-        violations = linter.lint_paths(paths)
+            violations = linter.lint_text(sys.stdin.read())
+        else:
+            violations = linter.lint_paths(paths)
+    except Exception as error:  # noqa: BLE001
+        exit_with_error(error)
 
     print(violations)
 

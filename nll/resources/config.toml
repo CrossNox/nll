@@ -9,9 +9,8 @@ max-concurrency = 4
 # Extensions linted when a directory is given. Hidden directories are skipped.
 include-extensions = [".md", ".txt", ".rst"]
 
-# Model alias or id passed to the claude CLI, and its effort level.
-model = "opus"
-model-effort = "high"
+# Agent used for model-judged rules. The model defaults to the selected agent.
+agent = "claude"
 
 
 # A rule's identifier is its section prefix followed by its code, so SCH and

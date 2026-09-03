@@ -8,6 +8,20 @@ logger = logging.getLogger(__name__)
 
 Agent = Literal["codex", "claude"]
 
+DEFAULT_AGENT_MODELS: dict[Agent, str] = {
+    "claude": "claude-opus-5",
+    "codex": "gpt-5.6-luna",
+}
+
+
+def find_default_model_for_agent(agent: Agent) -> str:
+    """Return the default model for an agent."""
+    try:
+        return DEFAULT_AGENT_MODELS[agent]
+    except KeyError as error:
+        raise ValueError(f"Unsupported model agent: {agent!r}") from error
+
+
 NLL_COMMAND = """---
 description: Check your most recent response with nll.
 ---
