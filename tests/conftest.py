@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 from claude_agent_sdk import ResultMessage
 
+from nll.config import SHIPPED_CONFIG_FILE
 from nll.linter import Linter
 from nll.rules import RuleBook
 
@@ -13,14 +14,15 @@ FakeModel = Callable[[dict[str, Any]], list[tuple[str, Any]]]
 
 @pytest.fixture
 def no_user_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point XDG at an empty directory so the shipped defaults apply."""
+    """Point XDG at an empty directory so user settings cannot leak in."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     return tmp_path
 
 
 @pytest.fixture
-def default_linter() -> Linter:
-    return Linter.from_config(None)
+def default_linter(no_user_config: Path, monkeypatch: pytest.MonkeyPatch) -> Linter:
+    monkeypatch.chdir(no_user_config)
+    return Linter.from_config(SHIPPED_CONFIG_FILE)
 
 
 @pytest.fixture
@@ -30,13 +32,13 @@ def rulebook(default_linter: Linter) -> RuleBook:
 
 @pytest.fixture
 def fake_model(monkeypatch: pytest.MonkeyPatch) -> FakeModel:
-    """Fake the Claude query: return the given report and record every call."""
+    """Fake Claude responses and record the prompts and options."""
 
     def install(structured_output: dict[str, Any]) -> list[tuple[str, Any]]:
         calls: list[tuple[str, Any]] = []
 
         async def fake_query(
-            *, prompt: str, options: Any = None, transport: Any = None
+            *, prompt: str, options: Any = None
         ) -> AsyncIterator[ResultMessage]:
             calls.append((prompt, options))
             yield ResultMessage(

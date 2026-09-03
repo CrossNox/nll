@@ -1,70 +1,86 @@
-import json
+from pathlib import Path
 
-from nll.document import Position
-from nll.violations import (
-    OutputFormat,
-    Violation,
-    render_violations,
-    sort_violations_by_position,
-)
+from nll.rules import Rule
+from nll.violations import Violation, Violations
 
 
-def violation(
-    path: str, position: Position | None, quote: str | None, suggestion: str | None
+def make_violation(
+    path: Path | None, line: int | None, offset: int | None, quote: str | None
 ) -> Violation:
     return Violation(
-        code="CHR004",
+        rule=Rule("CHR", "004", "Semicolon."),
         path=path,
-        position=position,
-        message="Semicolon.",
+        line=line,
+        offset=offset,
         quote=quote,
-        suggestion=suggestion,
     )
 
 
-def test_render_text_ends_with_the_count() -> None:
-    violations = [violation("x.md", Position(line=2, column=5), "a; b", "Split it")]
+def test_violation_without_location_renders_only_the_rule() -> None:
+    violation = make_violation(Path("x.md"), None, None, None)
 
-    assert render_violations(violations, OutputFormat.TEXT).splitlines() == [
-        "x.md:2:5: CHR004 Semicolon.",
-        "    > a; b",
-        "    Fix: Split it",
-        "Found 1 violations.",
-    ]
+    assert str(violation) == "CHR004: Semicolon."
 
 
-def test_render_text_marks_an_unlocated_violation() -> None:
-    violations = [violation("x.md", None, None, None)]
+def test_violation_renders_location_quote_and_truncated_long_quote() -> None:
+    quote = "x" * 105
+    violation = make_violation(Path("x.md"), 2, 5, quote)
 
-    assert render_violations(violations, OutputFormat.TEXT).splitlines() == [
-        "x.md:?:?: CHR004 Semicolon.",
-        "Found 1 violations.",
-    ]
+    rendered = str(violation)
 
-
-def test_render_json_keeps_unlocated_positions_null() -> None:
-    violations = [violation("x.md", None, None, None)]
-
-    assert json.loads(render_violations(violations, OutputFormat.JSON)) == [
-        {
-            "code": "CHR004",
-            "path": "x.md",
-            "line": None,
-            "column": None,
-            "message": "Semicolon.",
-            "quote": None,
-            "suggestion": None,
-        }
-    ]
+    assert rendered.startswith("line 2:\n\t> " + "x" * 100)
+    assert rendered.endswith("...[5 chars]\nCHR004: Semicolon.")
 
 
-def test_sort_orders_by_position_with_unlocated_last() -> None:
-    late = violation("a.md", Position(line=3, column=1), None, None)
-    early = violation("a.md", Position(line=1, column=9), None, None)
-    unlocated = violation("a.md", None, None, None)
+def test_violations_sort_by_path_then_location() -> None:
+    late = make_violation(Path("a.md"), 3, 1, "late")
+    early = make_violation(Path("a.md"), 1, 9, "early")
+    other = make_violation(Path("b.md"), 1, 1, "other")
+    unlocated = make_violation(Path("a.md"), None, None, None)
 
-    assert sort_violations_by_position([unlocated, late, early]) == [
-        early,
-        late,
-        unlocated,
+    violations = Violations([unlocated, other, late, early])
+
+    assert list(violations) == [unlocated, early, late, other]
+
+
+def test_extend_keeps_all_items_in_sorted_order() -> None:
+    first = Violations([make_violation(Path("b.md"), 1, 1, "b")])
+    second = Violations([make_violation(Path("a.md"), 2, 1, "a2")])
+
+    first.extend(second)
+
+    assert [item.path for item in first] == [Path("a.md"), Path("b.md")]
+
+
+def test_collect_flattens_parts_and_sorts_them() -> None:
+    first = Violations([make_violation(Path("b.md"), 1, 1, "b")])
+    second = Violations([make_violation(Path("a.md"), 1, 1, "a")])
+
+    collected = Violations.collect([first, second])
+
+    assert [item.path for item in collected] == [Path("a.md"), Path("b.md")]
+
+
+def test_violations_render_groups_items_by_path() -> None:
+    violations = Violations(
+        [
+            make_violation(Path("a.md"), 1, 1, "a"),
+            make_violation(Path("b.md"), 2, 1, "b"),
+        ]
+    )
+
+    assert str(violations).splitlines() == [
+        "a.md",
+        "=====",
+        "",
+        "line 1:",
+        "\t> a",
+        "CHR004: Semicolon.",
+        "",
+        "b.md",
+        "=====",
+        "",
+        "line 2:",
+        "\t> b",
+        "CHR004: Semicolon.",
     ]

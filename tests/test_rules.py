@@ -2,160 +2,113 @@ from typing import Any
 
 import pytest
 
-from nll.checks import SentenceCountOptions
-from nll.rules import NoOptions, RuleBook
-
-SEC_GROUP: dict[str, Any] = {
-    "SEC": {
-        "description": "Infrastructure details",
-        "001": "Names an internal host",
-        "abc": "Shows a token",
-    }
-}
+from nll.config import SHIPPED_CONFIG_FILE
+from nll.document import Document
+from nll.rules import CodeRule, ModelRule, RegexRule, RuleBook, RulesDefinitions
 
 
-def test_builtin_rulebook_has_every_documented_group(rulebook: RuleBook) -> None:
-    assert [group.prefix for group in rulebook.groups] == [
+def get_rule(rulebook: RuleBook, identifier: str) -> Any:
+    return next(
+        rule
+        for rule in rulebook.rules_definitions.iter_rules()
+        if rule.identifier == identifier
+    )
+
+
+def test_builtin_rules_are_parsed_into_sections(rulebook: RuleBook) -> None:
+    assert [section.name for section in rulebook.all_rules.sections] == [
         "SCH",
         "SLO",
         "ZIN",
         "CHR",
         "LEN",
+        "RGX",
     ]
-    assert rulebook["SCH000"].code == "SCH000"
-    assert rulebook.groups[2].description.startswith("Zinsser")
-
-    with pytest.raises(KeyError):
-        rulebook["XYZ001"]
+    assert get_rule(rulebook, "SCH000").description.startswith("Other scheme")
+    assert isinstance(get_rule(rulebook, "SCH001"), ModelRule)
+    assert isinstance(get_rule(rulebook, "CHR001"), CodeRule)
 
 
-def test_builtin_rules_know_who_checks_them(rulebook: RuleBook) -> None:
-    assert rulebook["CHR001"].is_checked_in_python
-    assert rulebook["LEN001"].is_checked_in_python
-    assert not rulebook["LEN002"].is_checked_in_python
-    assert rulebook["SCH001"].options == NoOptions()
+def test_rule_formats_arguments_in_its_description(rulebook: RuleBook) -> None:
+    rule = get_rule(rulebook, "LEN001")
 
-
-def test_builtin_len001_carries_its_option_and_renders_it(rulebook: RuleBook) -> None:
-    rule = rulebook["LEN001"]
-
-    assert rule.options == SentenceCountOptions(max_sentences=3)
-    assert (
-        rule.description_template == "The text has more than {max_sentences} sentences."
-    )
+    assert rule.arguments == {"max_sentences": 3}
     assert rule.description == "The text has more than 3 sentences."
+    assert str(rule) == "LEN001: The text has more than 3 sentences."
 
 
-def test_select_expands_prefixes_and_marks_enabled(rulebook: RuleBook) -> None:
-    selected = rulebook.select(["CHR"], [], [])
+def test_rulebook_selects_and_splits_enabled_rules(default_linter: Any) -> None:
+    linter = default_linter.from_config(
+        SHIPPED_CONFIG_FILE, select=["CHR", "LEN001"], ignore=[]
+    )
 
-    assert selected.enabled_codes == {
-        "CHR000",
+    assert [rule.identifier for rule in linter.rules.code_rules] == [
         "CHR001",
         "CHR002",
         "CHR003",
         "CHR004",
-    }
-    assert len(selected) == len(rulebook)
+        "CHR000",
+        "LEN001",
+    ]
+    assert linter.rules.model_rules == []
 
 
-def test_extend_select_and_ignore_apply_on_top(rulebook: RuleBook) -> None:
-    selected = rulebook.select(["SCH", "CHR004"], ["LEN001"], ["SCH00", "CHR004"])
-
-    assert selected.enabled_codes == {"LEN001"}
-
-
-def test_python_and_model_rules_split_the_enabled_ones(rulebook: RuleBook) -> None:
-    selected = rulebook.select(["SCH003", "CHR004", "LEN"], [], [])
-
-    assert [rule.code for rule in selected.python_rules] == ["CHR004", "LEN001"]
-    assert [rule.code for rule in selected.model_rules] == ["SCH003", "LEN002"]
-
-
-def test_unknown_selector_raises(rulebook: RuleBook) -> None:
-    with pytest.raises(ValueError, match="matches no rule"):
-        rulebook.expand("XYZ")
-
-    with pytest.raises(ValueError, match="matches no rule"):
-        rulebook.select(["ALL"], [], [])
-
-
-def test_str_lists_groups_with_state_and_checker(rulebook: RuleBook) -> None:
-    rendered = str(rulebook.select(["CHR001"], [], []))
-
-    assert "CHR  Characters that must not appear in prose" in rendered
-    assert "  CHR001   on   python  Em dash (U+2014)." in rendered
-    assert "  SCH001   off  model   Tricolon." in rendered
-    assert "  LEN001   off  python  The text has more than 3 sentences." in rendered
-
-
-def test_markdown_lists_only_enabled_model_rules_under_their_groups(
-    rulebook: RuleBook,
+def test_rulebook_extend_selection_and_ignore_are_prefix_based(
+    default_linter: Any,
 ) -> None:
-    rendered = rulebook.select(["SCH003", "CHR004", "LEN"], [], [])
+    linter = default_linter.from_config(
+        SHIPPED_CONFIG_FILE,
+        select=["CHR004"],
+        extend_select=["LEN"],
+        ignore=["LEN001"],
+    )
 
-    assert rendered.render_model_rules_as_markdown().splitlines() == [
-        "## SCH: Schemes: figures that work through the arrangement or repetition "
-        "of words rather than through meaning",
-        "- SCH003: " + rulebook["SCH003"].description,
-        "",
-        "## LEN: Length and concision",
-        "- LEN002: " + rulebook["LEN002"].description,
+    assert [rule.identifier for rule in linter.rules.code_rules] == ["CHR004"]
+    assert [rule.identifier for rule in linter.rules.model_rules] == ["LEN002"]
+
+
+def test_regex_rules_compile_and_report_matches() -> None:
+    definitions = RulesDefinitions.model_validate(
+        {"RGX": {"description": "Patterns", "001": r"X is not [^,]+, it's [^.]+"}}
+    )
+    rule = definitions.sections[0].rules[0]
+
+    assert isinstance(rule, RegexRule)
+    violations = list(rule(Document(prose="X is not slow, it's fast", path="x")))
+
+    assert [(item.line, item.offset, item.quote) for item in violations] == [
+        (1, 1, "X is not slow, it's fast")
     ]
 
 
-def test_merge_adds_a_new_model_group_after_the_existing_ones(
-    rulebook: RuleBook,
-) -> None:
-    merged = rulebook.merge(SEC_GROUP, "nll.toml")
-
-    assert [rule.code for rule in merged][-2:] == ["SEC001", "SECabc"]
-    assert merged.groups[-1].description == "Infrastructure details"
-    assert merged["SECabc"].options == NoOptions()
-    assert not merged["SEC001"].is_checked_in_python
-
-
-def test_merge_overrides_options_of_an_existing_rule(rulebook: RuleBook) -> None:
-    merged = rulebook.merge({"LEN": {"001": {"max-sentences": 5}}}, "nll.toml")
-
-    assert merged["LEN001"].options == SentenceCountOptions(max_sentences=5)
-    assert merged["LEN001"].description == "The text has more than 5 sentences."
-    assert merged["LEN001"].check is rulebook["LEN001"].check
-    assert merged["LEN002"] == rulebook["LEN002"]
+def test_invalid_regex_is_rejected() -> None:
+    with pytest.raises(ValueError, match="Invalid regular expression for RGX001"):
+        RulesDefinitions.model_validate(
+            {"RGX": {"description": "Patterns", "001": "["}}
+        )
 
 
 @pytest.mark.parametrize(
     ("groups", "message"),
     [
-        ("not a table", "rules must be a table of groups"),
-        ({"sec": {"description": "x", "001": "y"}}, "uppercase"),
-        ({"SEC": {"001": "y"}}, "needs a description string"),
-        ({"SEC": {"description": "x", "0-1": "y"}}, "must be letters or digits"),
-        ({"SEC": {"description": "x", "001": 1}}, "must be a description or a table"),
+        ({"SEC": {"001": "missing group description"}}, "no description"),
+        ({"SEC": {"description": "x", "001": 1}}, "must be a description"),
         (
-            {"SEC": {"description": "x", "001": {"max-sentences": 3}}},
-            "must be a description or a table",
-        ),
-        (
-            {"SEC": {"description": "x", "001": {"description": "y", "limit": 3}}},
-            "rule SEC001 options are invalid",
-        ),
-        ({"SCH": {"description": "again"}}, "group SCH is already defined"),
-        ({"SCH": {"999": "new rule"}}, "group SCH is already defined"),
-        ({"SCH": 3}, "group SCH is already defined"),
-        ({"LEN": {"001": {"description": "changed"}}}, "group LEN is already defined"),
-        ({"LEN": {"001": {"max-sentences": 0}}}, "rule LEN001 options are invalid"),
-        ({"LEN": {"001": {"max-words": 3}}}, "rule LEN001 options are invalid"),
-        (
-            {"SEC": {"description": "x", "001": "Over {limit}."}},
-            "rule SEC001 description names an unknown option 'limit'",
+            {"SEC": {"description": "x", "001": {"max": 1}}},
+            "no description",
         ),
     ],
 )
-def test_merge_rejects_bad_groups_and_overrides(
-    rulebook: RuleBook, groups: Any, message: str
+def test_malformed_rule_definitions_raise_clear_errors(
+    groups: dict[str, Any], message: str
 ) -> None:
-    with pytest.raises(ValueError, match=message) as raised:
-        rulebook.merge(groups, "nll.toml")
+    with pytest.raises(ValueError, match=message):
+        RulesDefinitions.model_validate(groups)
 
-    assert "nll.toml" in str(raised.value)
+
+def test_rulebook_string_shows_state_and_checker(rulebook: RuleBook) -> None:
+    rendered = str(rulebook)
+
+    assert "CHR - Characters that must not appear in prose" in rendered
+    assert "[ON] CHR001: Em dash (U+2014)." in rendered
+    assert "[OFF] CHR000: Any non-ASCII character not covered" in rendered
