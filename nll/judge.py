@@ -1,6 +1,7 @@
 """Judge model rules with Claude or Codex."""
 
 import logging
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from enum import StrEnum
 from functools import lru_cache
@@ -11,7 +12,6 @@ from openai_codex import AsyncCodex, Sandbox
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from nll.document import Document
-from nll.linter import ModelJudge
 from nll.rules import ModelRule
 from nll.violations import Violation, Violations
 
@@ -50,6 +50,18 @@ class Report[IdentifierT: str](BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     violations: list[ReportedViolation[IdentifierT]]
+
+
+class ModelJudge(ABC):
+    """Judge model rules for one document."""
+
+    def __init__(self, rules: Sequence[ModelRule], model: str) -> None:
+        self.rules = {rule.identifier: rule for rule in rules}
+        self.model = model
+
+    @abstractmethod
+    async def judge(self, document: Document) -> Violations:
+        """Judge one document and return its violations."""
 
 
 class _RuleModelJudge(ModelJudge):

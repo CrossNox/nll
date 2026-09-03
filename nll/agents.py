@@ -42,7 +42,6 @@ AGENT_COMMAND_DIRECTORIES: dict[Agent, tuple[str, str]] = {
 
 def install_hook(agent: Agent, *, local: bool) -> Path:
     """Install the nll command for an agent and return its path."""
-    agent = Agent(agent)
     agent_directory, command_directory = AGENT_COMMAND_DIRECTORIES[agent]
     base_directory = Path.cwd() if local else Path.home()
     command_path = base_directory / agent_directory / command_directory / "nll.md"

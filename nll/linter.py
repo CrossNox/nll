@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -12,22 +11,11 @@ from pydantic import BaseModel, ConfigDict, Field, PositiveInt, ValidationError
 from nll.agents import DEFAULT_AGENT_MODELS, Agent
 from nll.config import SHIPPED_CONFIG_FILE, read_config_file
 from nll.document import Document
-from nll.rules import ModelRule, RuleBook, RulesDefinitions
+from nll.judge import ClaudeModelJudge, CodexModelJudge, ModelJudge
+from nll.rules import RuleBook, RulesDefinitions
 from nll.violations import Violations
 
 logger = logging.getLogger(__name__)
-
-
-class ModelJudge(ABC):
-    """Judge model rules for one document."""
-
-    def __init__(self, rules: Sequence[ModelRule], model: str) -> None:
-        self.rules = {rule.identifier: rule for rule in rules}
-        self.model = model
-
-    @abstractmethod
-    async def judge(self, document: Document) -> Violations:
-        """Judge one document and return its violations."""
 
 
 def merge_settings(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:
@@ -187,8 +175,6 @@ class Linter:
 
     def _create_model_judge(self) -> ModelJudge:
         """Create the judge selected by the configuration."""
-        from nll.judge import ClaudeModelJudge, CodexModelJudge
-
         judge_types: dict[Agent, type[ModelJudge]] = {
             Agent.CLAUDE: ClaudeModelJudge,
             Agent.CODEX: CodexModelJudge,
