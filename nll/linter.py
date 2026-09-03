@@ -116,8 +116,8 @@ class Linter:
         include_extensions: Sequence[str] | None = None,
     ) -> "Linter":
         """Read the config file and apply overrides."""
-        file_settings = read_config_file(config_file)
-        settings = merge_shipped_settings(file_settings)
+        settings = read_config_file(config_file)
+        settings = merge_shipped_settings(settings)
         settings = apply_settings_overrides(
             settings,
             select=select,
