@@ -68,6 +68,13 @@ IncludeExtensionOption = Annotated[
         help="Extensions linted when a directory is given, replacing the config's.",
     ),
 ]
+IgnoreCodeBlocksOption = Annotated[
+    bool | None,
+    typer.Option(
+        "--ignore-code-blocks/--lint-code-blocks",
+        help="Ignore Markdown and reStructuredText code blocks.",
+    ),
+]
 
 
 @app.callback()
@@ -106,6 +113,7 @@ def lint(
     agent: AgentOption = None,
     max_concurrency: MaxConcurrencyOption = None,
     include_extensions: IncludeExtensionOption = None,
+    ignore_code_blocks: IgnoreCodeBlocksOption = None,
 ) -> None:
     """Lint files and print the violations. Exits with 1 when any is reported."""
     try:
@@ -121,6 +129,7 @@ def lint(
             agent=agent,
             max_concurrency=max_concurrency,
             include_extensions=include_extensions,
+            ignore_code_blocks=ignore_code_blocks,
         )
 
         if paths is None:
@@ -143,9 +152,9 @@ def lint(
 
     print(violations)
 
-    file_label = "file" if linter.linted_file_count == 1 else "files"
     file_count = len(set(v.path for v in violations))
-    print(f"Found {len(violations)} violations across " f"{file_count} {file_label}.")
+    file_label = "file" if file_count == 1 else "files"
+    print(f"Found {len(violations)} violations across {file_count} {file_label}.")
 
     raise typer.Exit(code=1)
 

@@ -9,6 +9,9 @@ max-concurrency = 4
 # Extensions linted when a directory is given. Hidden directories are skipped.
 include-extensions = [".md", ".txt", ".rst"]
 
+# Omit Markdown and reStructuredText code blocks before applying rules.
+ignore-code-blocks = true
+
 # Agent used for model-judged rules.
 agent = "claude"
 # Model alias or id passed to the selected backend.

@@ -20,6 +20,7 @@ def test_lint_prints_code_violations_and_exits_one(
     result = runner.invoke(app, ["lint", "--select", "CHR004", "notes.md"])
 
     assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
     assert "notes.md" in result.stdout
     assert "CHR004: Semicolon." in result.stdout
 
@@ -34,6 +35,47 @@ def test_lint_prints_a_clean_message_and_exits_zero(
 
     assert result.exit_code == 0
     assert result.stdout == "No violations found.\n"
+
+
+def test_lint_ignores_fenced_code_and_preserves_reported_line_numbers(
+    no_user_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(no_user_config)
+    (no_user_config / "notes.md").write_text(
+        "Before.\n```python\ninside;\n```\nAfter;\n", encoding="utf-8"
+    )
+
+    result = runner.invoke(app, ["lint", "--select", "CHR004", "notes.md"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert "line 5:" in result.stdout
+    assert "inside;" not in result.stdout
+
+
+def test_lint_ignore_code_blocks_cli_flags_override_the_config(
+    no_user_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(no_user_config)
+    (no_user_config / "nll.toml").write_text(
+        "ignore-code-blocks = false\n", encoding="utf-8"
+    )
+    (no_user_config / "notes.md").write_text(
+        "```python\ninside;\n```\n", encoding="utf-8"
+    )
+
+    ignored = runner.invoke(
+        app,
+        ["lint", "--select", "CHR004", "--ignore-code-blocks", "notes.md"],
+    )
+    included = runner.invoke(
+        app,
+        ["lint", "--select", "CHR004", "--lint-code-blocks", "notes.md"],
+    )
+
+    assert ignored.exit_code == 0
+    assert included.exit_code == 1
+    assert "line 2:" in included.stdout
 
 
 def test_lint_reads_stdin_when_no_paths_are_given(

@@ -16,17 +16,22 @@ def test_from_config_uses_shipped_defaults(default_linter: Linter) -> None:
     assert default_linter.config.include_extensions == [".md", ".txt", ".rst"]
     assert default_linter.config.select == ["SCH", "SLO", "ZIN", "CHR", "LEN", "RGX"]
     assert default_linter.config.ignore == ["CHR000", "LEN001"]
+    assert default_linter.config.ignore_code_blocks is True
 
 
 def test_from_config_merges_a_file_over_shipped_settings(tmp_path: Path) -> None:
     path = tmp_path / "nll.toml"
-    path.write_text('ignore = ["CHR004"]\nmodel = "custom"\n', encoding="utf-8")
+    path.write_text(
+        'ignore = ["CHR004"]\nmodel = "custom"\nignore-code-blocks = false\n',
+        encoding="utf-8",
+    )
 
     linter = Linter.from_config(path)
 
     assert linter.config.ignore == ["CHR004"]
     assert linter.config.model == "custom"
     assert linter.config.max_concurrency == 4
+    assert linter.config.ignore_code_blocks is False
     assert "CHR004" not in linter.rules.rules_on
     assert "CHR001" in linter.rules.rules_on
 
@@ -69,6 +74,14 @@ def test_lint_runs_code_rules_and_returns_sorted_violations() -> None:
     assert violation.rule.identifier == "CHR004"
 
 
+def test_lint_omits_code_blocks_before_running_code_rules() -> None:
+    linter = Linter.from_config(SHIPPED_CONFIG_FILE, select=["CHR004"])
+
+    violations = linter.lint_text("```python\ninside;\n```\noutside;")
+
+    assert [(item.line, item.offset) for item in violations] == [(4, 8)]
+
+
 def test_lint_runs_model_rules_and_passes_the_document_to_the_judge(
     fake_model,
 ) -> None:
@@ -83,6 +96,23 @@ def test_lint_runs_model_rules_and_passes_the_document_to_the_judge(
         ("SLO001", 1, 1)
     ]
     assert "Ship less, sleep more." in calls[0][0]
+
+
+def test_lint_omits_code_blocks_from_model_prompts(fake_model) -> None:
+    calls = fake_model({"violations": []})
+    linter = Linter.from_config(SHIPPED_CONFIG_FILE, select=["SLO001"])
+
+    asyncio.run(
+        linter.lint(
+            Document(
+                prose="Before.\n```python\nShip less, sleep more.\n```\nAfter.",
+                path=Path("x.md"),
+            )
+        )
+    )
+
+    assert "Ship less, sleep more." not in calls[0][0]
+    assert "<text>\nBefore.\n\n\n\nAfter.\n</text>" in calls[0][0]
 
 
 def test_lint_does_not_call_the_model_when_only_code_rules_are_enabled(

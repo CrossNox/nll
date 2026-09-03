@@ -47,6 +47,7 @@ def apply_settings_overrides(
     agent: Agent | None = None,
     max_concurrency: int | None = None,
     include_extensions: Sequence[str] | None = None,
+    ignore_code_blocks: bool | None = None,
 ) -> dict[str, Any]:
     """Replace the settings the caller gave a value for, leaving the rest alone."""
     overrides = {
@@ -57,6 +58,7 @@ def apply_settings_overrides(
         "agent": agent,
         "max-concurrency": max_concurrency,
         "include-extensions": include_extensions,
+        "ignore-code-blocks": ignore_code_blocks,
     }
 
     return settings | {
@@ -78,6 +80,7 @@ class LinterConfig(BaseModel):
 
     max_concurrency: PositiveInt = Field(alias="max-concurrency")
     include_extensions: list[str] = Field(alias="include-extensions")
+    ignore_code_blocks: bool = Field(alias="ignore-code-blocks")
     rules: RulesDefinitions
 
 
@@ -114,6 +117,7 @@ class Linter:
         agent: Agent | None = None,
         max_concurrency: int | None = None,
         include_extensions: Sequence[str] | None = None,
+        ignore_code_blocks: bool | None = None,
     ) -> "Linter":
         """Read the config file and apply overrides."""
         settings = read_config_file(config_file)
@@ -127,6 +131,7 @@ class Linter:
             agent=agent,
             max_concurrency=max_concurrency,
             include_extensions=include_extensions,
+            ignore_code_blocks=ignore_code_blocks,
         )
 
         if settings["model"] is None:
@@ -153,16 +158,18 @@ class Linter:
 
     async def lint(self, document: Document) -> Violations:
         """Lint a document."""
-        # So, a Document has roughly an optional path as prop, the read content
-        # its prose, initialized with the flag to ignore code
+        linted_document = document
+
+        if self.config.ignore_code_blocks:
+            linted_document = document.remove_code_blocks()
 
         violations = Violations()
 
         for rule in self.rules.code_rules:
-            violations.extend(rule(document))
+            violations.extend(rule(linted_document))
 
         if len(self.rules.model_rules) > 0:
-            violations.extend(await self.llm_judge.judge(document))
+            violations.extend(await self.llm_judge.judge(linted_document))
 
         logger.info(
             "%s violations found%s",
