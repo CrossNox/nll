@@ -1,5 +1,5 @@
 # Prefixes expand: SCH means every SCH rule.
-select = ["SCH", "SLO", "ZIN", "CHR", "LEN", "RGX"]
+select = ["SCH", "SLO", "ZIN", "CHR", "LEN", "RGX", "CLH"]
 extend-select = []
 ignore = ["CHR000", "LEN001"]
 
@@ -61,3 +61,44 @@ description = "Length and concision"
 
 [rules.RGX]
 description = "Patterns to avoid"
+
+[rules.CLH]
+description = "LLM cliches adapted from Simon Willison's LLM cliche highlighter"
+001 = "No X, no Y chains."
+002 = "That's the whole point, game, or thing."
+003 = "Did not X, did not Y chains."
+004 = "Don't VERB it, VERB it."
+005 = "Sit with that."
+006 = "You already know."
+007 = "Is the entire point, game, or business model."
+008 = "The entire point, game, or business model is."
+009 = "Is real and or not."
+010 = "The punchline is."
+011 = "Worth naming."
+012 = "That's not nothing."
+013 = "Is the whole point, trick, pitch, or idea."
+014 = "Echoing sentence runs."
+015 = "Performative honesty."
+016 = "That's the part."
+017 = "The only X I trust."
+018 = "Don't take my word for it."
+019 = "Turns out."
+020 = "Fits in your head."
+021 = "Stacked rhetorical questions."
+022 = "Repeated sentence openers."
+023 = "Colon into a triple."
+024 = "Here's the twist."
+025 = "X is dead."
+026 = "That's why X mattered."
+027 = "Stranded auxiliary contrast."
+028 = "AI vocabulary words."
+029 = "Not just X, but Y."
+030 = "It's important to note."
+031 = "Stands as a testament."
+032 = "Plays a crucial role."
+033 = "Ever-evolving landscape."
+034 = "Experts argue."
+035 = "Despite these challenges."
+036 = "Participle sentence tails."
+037 = "Promotional boilerplate."
+038 = "Chatbot leftovers."

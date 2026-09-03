@@ -143,7 +143,7 @@ def test_config_prints_the_shipped_configuration() -> None:
     result = runner.invoke(app, ["config"])
 
     assert result.exit_code == 0
-    assert 'select = ["SCH", "SLO", "ZIN", "CHR", "LEN", "RGX"]' in result.stdout
+    assert 'select = ["SCH", "SLO", "ZIN", "CHR", "LEN", "RGX", "CLH"]' in result.stdout
 
 
 def test_bad_config_fails_with_a_cli_error(

@@ -134,6 +134,44 @@ A description can name the rule's options in braces. Write an option name with u
 | CHR000 | off | Any non-ASCII character not covered by another CHR rule. |
 | LEN001 | off | The text has more than 3 sentences. |
 | LEN002 | on | Not concise. The text includes material the reader did not ask for: justification, background, alternatives or caveats. |
+| CLH001 | on | No X, no Y chains. |
+| CLH002 | on | That's the whole point, game, or thing. |
+| CLH003 | on | Did not X, did not Y chains. |
+| CLH004 | on | Don't VERB it, VERB it. |
+| CLH005 | on | Sit with that. |
+| CLH006 | on | You already know. |
+| CLH007 | on | Is the entire point, game, or business model. |
+| CLH008 | on | The entire point, game, or business model is. |
+| CLH009 | on | Is real and or not. |
+| CLH010 | on | The punchline is. |
+| CLH011 | on | Worth naming. |
+| CLH012 | on | That's not nothing. |
+| CLH013 | on | Is the whole point, trick, pitch, or idea. |
+| CLH014 | on | Echoing sentence runs. |
+| CLH015 | on | Performative honesty. |
+| CLH016 | on | That's the part. |
+| CLH017 | on | The only X I trust. |
+| CLH018 | on | Don't take my word for it. |
+| CLH019 | on | Turns out. |
+| CLH020 | on | Fits in your head. |
+| CLH021 | on | Stacked rhetorical questions. |
+| CLH022 | on | Repeated sentence openers. |
+| CLH023 | on | Colon into a triple. |
+| CLH024 | on | Here's the twist. |
+| CLH025 | on | X is dead. |
+| CLH026 | on | That's why X mattered. |
+| CLH027 | on | Stranded auxiliary contrast. |
+| CLH028 | on | AI vocabulary words. |
+| CLH029 | on | Not just X, but Y. |
+| CLH030 | on | It's important to note. |
+| CLH031 | on | Stands as a testament. |
+| CLH032 | on | Plays a crucial role. |
+| CLH033 | on | Ever-evolving landscape. |
+| CLH034 | on | Experts argue. |
+| CLH035 | on | Despite these challenges. |
+| CLH036 | on | Participle sentence tails. |
+| CLH037 | on | Promotional boilerplate. |
+| CLH038 | on | Chatbot leftovers. |
 
 ## Develop
 
@@ -145,3 +183,7 @@ uv run ruff check
 uv run ruff format
 uv tool install --editable .
 ```
+
+## Acknowledgments
+
+The CLH rules are adapted from [Simon Willison's LLM cliche highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html).

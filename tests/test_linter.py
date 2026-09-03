@@ -14,7 +14,15 @@ def test_from_config_uses_shipped_defaults(default_linter: Linter) -> None:
     assert default_linter.config.model == "claude-opus-5"
     assert default_linter.config.max_concurrency == 4
     assert default_linter.config.include_extensions == [".md", ".txt", ".rst"]
-    assert default_linter.config.select == ["SCH", "SLO", "ZIN", "CHR", "LEN", "RGX"]
+    assert default_linter.config.select == [
+        "SCH",
+        "SLO",
+        "ZIN",
+        "CHR",
+        "LEN",
+        "RGX",
+        "CLH",
+    ]
     assert default_linter.config.ignore == ["CHR000", "LEN001"]
     assert default_linter.config.ignore_code_blocks is True
 

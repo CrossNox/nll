@@ -23,10 +23,12 @@ def test_builtin_rules_are_parsed_into_sections(rulebook: RuleBook) -> None:
         "CHR",
         "LEN",
         "RGX",
+        "CLH",
     ]
     assert get_rule(rulebook, "SCH000").description.startswith("Other scheme")
     assert isinstance(get_rule(rulebook, "SCH001"), ModelRule)
     assert isinstance(get_rule(rulebook, "CHR001"), CodeRule)
+    assert isinstance(get_rule(rulebook, "CLH001"), CodeRule)
 
 
 def test_rule_formats_arguments_in_its_description(rulebook: RuleBook) -> None:
