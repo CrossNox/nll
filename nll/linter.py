@@ -12,11 +12,8 @@ from nll.agents import DEFAULT_AGENT_MODELS, Agent
 from nll.config import SHIPPED_CONFIG_FILE, read_config_file
 from nll.document import Document
 from nll.judge import ClaudeModelJudge, CodexModelJudge, ModelJudge
-from nll.plugins import (
-    load_enabled_plugins,
-    read_enabled_plugin_names,
-)
-from nll.rules import CodeRule, RuleBook, RulesDefinitions
+from nll.plugins import Plugin, load_plugins
+from nll.rules import RuleBook, RulesDefinitions
 from nll.violations import Violations
 
 logger = logging.getLogger(__name__)
@@ -34,11 +31,6 @@ def merge_settings(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]
             merged[key] = value
 
     return merged
-
-
-def merge_shipped_settings(settings: dict[str, Any]) -> dict[str, Any]:
-    """Layer a config file's settings over the shipped ones."""
-    return merge_settings(read_config_file(SHIPPED_CONFIG_FILE), settings)
 
 
 def apply_settings_overrides(
@@ -73,7 +65,7 @@ def apply_settings_overrides(
 class LinterConfig(BaseModel):
     """Linter configuration"""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     select: list[str]
     extend_select: list[str] = Field(alias="extend-select")
@@ -85,8 +77,70 @@ class LinterConfig(BaseModel):
     max_concurrency: PositiveInt = Field(alias="max-concurrency")
     include_extensions: list[str] = Field(alias="include-extensions")
     ignore_code_blocks: bool = Field(alias="ignore-code-blocks")
-    plugins: list[str] = []
+    plugins: tuple[Plugin, ...]
     rules: RulesDefinitions
+
+    @classmethod
+    def resolve_from(
+        cls,
+        config_file: Path,
+        /,
+        *,
+        select: Sequence[str] | None = None,
+        extend_select: Sequence[str] | None = None,
+        ignore: Sequence[str] | None = None,
+        model: str | None = None,
+        agent: Agent | None = None,
+        max_concurrency: int | None = None,
+        include_extensions: Sequence[str] | None = None,
+        ignore_code_blocks: bool | None = None,
+    ) -> "LinterConfig":
+        """Resolve settings from a config file."""
+        project_settings = read_config_file(config_file)
+        shipped_settings = read_config_file(SHIPPED_CONFIG_FILE)
+        plugin_settings = merge_settings(shipped_settings, project_settings)
+        plugins = load_plugins(plugin_settings["plugins"])
+        settings = shipped_settings
+
+        for plugin in plugins:
+            settings = merge_settings(settings, {"rules": plugin.rules})
+
+        settings = merge_settings(settings, project_settings)
+
+        settings = apply_settings_overrides(
+            settings,
+            select=select,
+            extend_select=extend_select,
+            ignore=ignore,
+            model=model,
+            agent=agent,
+            max_concurrency=max_concurrency,
+            include_extensions=include_extensions,
+            ignore_code_blocks=ignore_code_blocks,
+        )
+
+        if settings["model"] is None:
+            settings["model"] = DEFAULT_AGENT_MODELS[settings["agent"]]
+
+        try:
+            settings["plugins"] = plugins
+            config = cls.model_validate(settings)
+        except ValidationError as error:
+            raise ValueError(f"Configuration error: {error}") from error
+
+        for rule in config.ignore:
+            if rule in config.select:
+                raise ValueError(
+                    f"rule {rule} is both in the ignore list and the selection list"
+                )
+
+            if rule in config.extend_select:
+                raise ValueError(
+                    f"rule {rule} is both in the ignore list and the "
+                    "extended selection list"
+                )
+
+        return config
 
 
 class Linter:
@@ -125,21 +179,8 @@ class Linter:
         ignore_code_blocks: bool | None = None,
     ) -> "Linter":
         """Read the config file and apply overrides."""
-        project_settings = read_config_file(config_file)
-        shipped_settings = read_config_file(SHIPPED_CONFIG_FILE)
-        plugin_names = read_enabled_plugin_names(project_settings)
-        loaded_plugins = load_enabled_plugins(
-            plugin_names,
-            shipped_settings["rules"],
-            CodeRule.registry,
-        )
-        settings = merge_settings(
-            shipped_settings,
-            {"rules": loaded_plugins.rules},
-        )
-        settings = merge_settings(settings, project_settings)
-        settings = apply_settings_overrides(
-            settings,
+        config = LinterConfig.resolve_from(
+            config_file,
             select=select,
             extend_select=extend_select,
             ignore=ignore,
@@ -149,46 +190,17 @@ class Linter:
             include_extensions=include_extensions,
             ignore_code_blocks=ignore_code_blocks,
         )
-
-        if settings["model"] is None:
-            settings["model"] = DEFAULT_AGENT_MODELS[settings["agent"]]
-
-        try:
-            configured = LinterConfig.model_validate(
-                settings,
-                context={"code_rule_types": loaded_plugins.code_rule_types},
-            )
-        except ValidationError as error:
-            raise ValueError(f"Configuration error: {error}") from error
-
-        for rule in configured.ignore:
-            if rule in configured.select:
-                raise ValueError(
-                    f"rule {rule} is both in the ignore list and the selection list"
-                )
-
-            if rule in configured.extend_select:
-                raise ValueError(
-                    f"rule {rule} is both in the ignore list and the "
-                    "extended selection list"
-                )
-
-        return cls(configured)
+        return cls(config)
 
     async def lint(self, document: Document) -> Violations:
         """Lint a document."""
-        linted_document = document
-
-        if self.config.ignore_code_blocks:
-            linted_document = document.remove_code_blocks()
-
         violations = Violations()
 
         for rule in self.rules.code_rules:
-            violations.extend(rule(linted_document))
+            violations.extend(rule(document))
 
         if len(self.rules.model_rules) > 0:
-            violations.extend(await self.llm_judge.judge(linted_document))
+            violations.extend(await self.llm_judge.judge(document))
 
         logger.info(
             "%s violations found%s",
@@ -200,7 +212,10 @@ class Linter:
 
     def lint_text(self, text: str) -> Violations:
         """Lint text."""
-        document = Document(prose=text)
+        document = Document(
+            prose=text,
+            ignore_code_blocks=self.config.ignore_code_blocks,
+        )
         return asyncio.run(self.lint(document))
 
     def _collect_matching_files(self, directory: Path) -> list[Path]:
@@ -236,7 +251,10 @@ class Linter:
     async def _lint_file(self, path: Path, semaphore: asyncio.Semaphore) -> Violations:
         """Lint one file, holding a concurrency slot for the whole call."""
         async with semaphore:
-            document = Document(path=path)
+            document = Document(
+                path=path,
+                ignore_code_blocks=self.config.ignore_code_blocks,
+            )
 
             return await self.lint(document)
 

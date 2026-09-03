@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 
+from nll.config import SHIPPED_CONFIG_FILE
 from nll.document import Document
 from nll.linter import Linter
 from nll.plugins import Plugin
@@ -81,7 +82,7 @@ def test_project_configuration_overrides_plugin_rule_defaults(
     install_fake_plugin(monkeypatch)
     config = tmp_path / "nll.toml"
     config.write_text(
-        '\n'.join(
+        "\n".join(
             [
                 'plugins = ["acme-rules"]',
                 'select = ["ACM"]',
@@ -102,6 +103,28 @@ def test_project_configuration_overrides_plugin_rule_defaults(
 
     assert rules["ACM001"].description == "Project-specific marker rule."
     assert rules["ACM002"].description == "Needs a model judgment."
+
+
+def test_shipped_configuration_enables_its_plugin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install_fake_plugin(monkeypatch)
+    shipped_config = tmp_path / "shipped.toml"
+    shipped_config.write_text(
+        SHIPPED_CONFIG_FILE.read_text(encoding="utf-8").replace(
+            "plugins = []", 'plugins = ["acme-rules"]'
+        ),
+        encoding="utf-8",
+    )
+    project_config = tmp_path / "nll.toml"
+    project_config.write_text('select = ["ACM001"]\n', encoding="utf-8")
+    monkeypatch.setattr("nll.linter.SHIPPED_CONFIG_FILE", shipped_config)
+
+    linter = Linter.from_config(project_config)
+
+    assert [plugin.name for plugin in linter.plugins] == ["acme-rules"]
+    assert [plugin.name for plugin in linter.config.plugins] == ["acme-rules"]
+    assert [rule.identifier for rule in linter.rules.code_rules] == ["ACM001"]
 
 
 def test_plugin_identifier_collision_names_both_providers(
@@ -149,9 +172,7 @@ def test_plugin_identifier_collision_names_both_plugins(
 
     monkeypatch.setattr("nll.plugins.entry_points", find_entry_points)
     config = tmp_path / "nll.toml"
-    config.write_text(
-        'plugins = ["acme-rules", "house-rules"]\n', encoding="utf-8"
-    )
+    config.write_text('plugins = ["acme-rules", "house-rules"]\n', encoding="utf-8")
 
     with pytest.raises(
         ValueError,

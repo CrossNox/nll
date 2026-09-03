@@ -1,9 +1,19 @@
-import re
 from pathlib import Path
+
+from docutils import nodes
+from docutils.core import publish_doctree
+from markdown_it import MarkdownIt
+
+MARKDOWN_PARSER = MarkdownIt("commonmark")
 
 
 class Document:
-    def __init__(self, path: Path | None = None, prose: str | None = None):
+    def __init__(
+        self,
+        path: Path | None = None,
+        prose: str | None = None,
+        ignore_code_blocks: bool = False,
+    ):
         if prose is None:
             if path is None:
                 raise ValueError("Either 'prose' or 'path' must be provided.")
@@ -12,157 +22,108 @@ class Document:
 
         self.prose = prose
         self.path = path
+
+        if ignore_code_blocks:
+            self.prose = self._omit_code_blocks()
+
         self.lines = self.prose.split("\n")
 
-    def remove_code_blocks(self) -> "Document":
-        """Remove Markdown and reStructuredText code blocks."""
+    def _omit_code_blocks(self) -> str:
+        """Omit code content while preserving source line positions."""
+        if self.path is None:
+            return self.prose
+
+        if self.path.suffix.lower() == ".md":
+            omitted_ranges = self._find_markdown_code_block_ranges()
+        elif self.path.suffix.lower() == ".rst":
+            omitted_ranges = self._find_rst_code_block_ranges()
+        else:
+            return self.prose
+
         lines = self.prose.splitlines(keepends=True)
-        omitted = [False] * len(lines)
-        line_index = 0
+        omitted_lines = [False] * len(lines)
 
-        while line_index < len(lines):
-            markdown_fence = self._find_markdown_fence_start(lines[line_index])
+        for start_line, end_line in omitted_ranges:
+            for line_index in range(start_line, end_line):
+                omitted_lines[line_index] = True
 
-            if markdown_fence is not None:
-                fence_character, fence_length = markdown_fence
-                closing_line_index = self._find_markdown_fence_end(
-                    lines,
-                    line_index + 1,
-                    fence_character,
-                    fence_length,
-                )
+        return "".join(
+            self._blank_line(line) if omitted else line
+            for line, omitted in zip(lines, omitted_lines, strict=True)
+        )
 
-                if closing_line_index is None:
-                    raise ValueError(
-                        f"Unclosed Markdown fence opened on line {line_index + 1}."
-                    )
+    def _find_markdown_code_block_ranges(self) -> list[tuple[int, int]]:
+        """Find source ranges for Markdown code blocks."""
+        ranges = []
 
-                for omitted_line_index in range(line_index, closing_line_index + 1):
-                    omitted[omitted_line_index] = True
+        for token in MARKDOWN_PARSER.parse(self.prose):
+            if token.type in {"code_block", "fence"} and token.map is not None:
+                ranges.append((token.map[0], token.map[1]))
 
-                line_index = closing_line_index + 1
+        return ranges
+
+    def _find_rst_code_block_ranges(self) -> list[tuple[int, int]]:
+        """Find source ranges for reStructuredText literal blocks."""
+        tree = publish_doctree(
+            self.prose,
+            settings_overrides={
+                "file_insertion_enabled": False,
+                "halt_level": 6,
+                "raw_enabled": False,
+                "report_level": 5,
+            },
+        )
+        ranges = []
+        source_offset = 0
+
+        for block in tree.findall(nodes.literal_block):
+            if isinstance(
+                block.parent, nodes.system_message
+            ) and not block.rawsource.lstrip().startswith(
+                (".. code::", ".. code-block::")
+            ):
                 continue
 
-            rst_block_indentation = self._find_rst_block_indentation(lines[line_index])
-
-            if rst_block_indentation is not None:
-                block_end_index = self._find_indented_block_end(
-                    lines,
-                    line_index + 1,
-                    rst_block_indentation,
-                )
-
-                for omitted_line_index in range(line_index, block_end_index):
-                    omitted[omitted_line_index] = True
-
-                line_index = block_end_index
-                continue
-
-            literal_block_indentation = self._find_rst_literal_block_indentation(
-                lines[line_index]
+            start_offset = self._find_source_offset_for_rst_block(
+                block.rawsource,
+                source_offset,
+                block.line,
             )
 
-            if literal_block_indentation is not None:
-                block_end_index = self._find_indented_block_end(
-                    lines,
-                    line_index + 1,
-                    literal_block_indentation,
-                )
+            start_line = self.prose.count("\n", 0, start_offset)
+            end_line = start_line + len(block.rawsource.splitlines())
+            ranges.append((start_line, end_line))
+            source_offset = start_offset + len(block.rawsource)
 
-                for omitted_line_index in range(line_index + 1, block_end_index):
-                    omitted[omitted_line_index] = True
+        return ranges
 
-                line_index = block_end_index
-                continue
-
-            line_index += 1
-
-        prose = "".join(
-            self._blank_line(line) if omit_line else line
-            for line, omit_line in zip(lines, omitted, strict=True)
-        )
-
-        return Document(path=self.path, prose=prose)
-
-    @staticmethod
-    def _find_markdown_fence_start(line: str) -> tuple[str, int] | None:
-        content = line.rstrip("\r\n")
-        match = re.match(r"^ {0,3}(?P<fence>`{3,}|~{3,}).*$", content)
-
-        if match is None:
-            return None
-
-        fence = match.group("fence")
-        return fence[0], len(fence)
-
-    @staticmethod
-    def _find_markdown_fence_end(
-        lines: list[str],
-        start_index: int,
-        fence_character: str,
-        fence_length: int,
-    ) -> int | None:
-        pattern = re.compile(
-            rf"^ {{0,3}}{re.escape(fence_character)}{{{fence_length},}}[ \t]*$"
-        )
-
-        for line_index in range(start_index, len(lines)):
-            if pattern.match(lines[line_index].rstrip("\r\n")) is not None:
-                return line_index
-
-        return None
-
-    @staticmethod
-    def _find_rst_block_indentation(line: str) -> int | None:
-        content = line.rstrip("\r\n")
-        match = re.match(
-            r"^(?P<indent>[ \t]*)\.\.\s+(?:code|code-block)::(?:[ \t].*)?$",
-            content,
-        )
-
-        if match is None:
-            return None
-
-        return Document._find_indentation_width(match.group("indent"))
-
-    @staticmethod
-    def _find_rst_literal_block_indentation(line: str) -> int | None:
-        content = line.rstrip("\r\n")
-
-        if re.match(r"^[ \t]*\.\.\s+\S+::", content) is not None:
-            return None
-
-        if not content.rstrip(" \t").endswith("::"):
-            return None
-
-        return Document._find_indentation_width(content)
-
-    @staticmethod
-    def _find_indented_block_end(
-        lines: list[str], start_index: int, block_indentation: int
+    def _find_source_offset_for_rst_block(
+        self,
+        rawsource: str,
+        source_offset: int,
+        reported_line: int | None,
     ) -> int:
-        line_index = start_index
+        """Find the source offset for a reStructuredText literal block."""
+        offset = self.prose.find(rawsource, source_offset)
 
-        while line_index < len(lines):
-            content = lines[line_index].rstrip("\r\n")
+        if offset == -1:
+            raise ValueError("Could not locate a reStructuredText code block.")
 
-            if content.strip(" \t") == "":
-                line_index += 1
-                continue
+        if reported_line is None:
+            return offset
 
-            indentation = Document._find_indentation_width(content)
+        expected_offset = offset
 
-            if indentation <= block_indentation:
-                return line_index
+        while offset != -1:
+            line_number = self.prose.count("\n", 0, offset) + 1
 
-            line_index += 1
+            if line_number > reported_line:
+                break
 
-        return line_index
+            expected_offset = offset
+            offset = self.prose.find(rawsource, offset + 1)
 
-    @staticmethod
-    def _find_indentation_width(line: str) -> int:
-        indentation = line[: len(line) - len(line.lstrip(" \t"))]
-        return len(indentation.expandtabs(8))
+        return expected_offset
 
     @staticmethod
     def _blank_line(line: str) -> str:

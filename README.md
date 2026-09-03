@@ -108,20 +108,24 @@ A description can name the rule's options in braces. Write an option name with u
 
 #### Installing rule packages
 
-Rule packages are ordinary Python packages. Install one with your preferred package manager, then enable its `nll.plugins` entry-point name:
+Rule packages are ordinary Python packages. Install them in the same environment
+as `nll`, then enable their `nll.plugins` entry-point names. With uv tools:
 
 ```sh
-uv tool install nll-acme-rules
+uv tool install nll --with nll-acme-rules
 ```
+
+Running the command again replaces nll's tool environment. Include every enabled
+plugin with another `--with` option.
 
 ```toml
 plugins = ["acme-rules"]
 extend-select = ["ACM"]
 ```
 
-The package contributes default sections under `[rules]`. Your configuration can select, ignore, and override those rules in the same way as built-in rules. `nll` rejects a rule identifier supplied by more than one enabled package or by nll itself.
+The package contributes default sections under `[rules]`. Your configuration can select, ignore, and override those rules in the same way as built-in rules.
 
-`nll plugins` lists installed packages and marks the packages enabled by the active configuration.
+`nll plugins` lists the rule packages enabled by the active configuration.
 
 To author a package, declare an entry point that names a factory returning `nll.plugins.Plugin`:
 
@@ -130,7 +134,7 @@ To author a package, declare an entry point that names a factory returning `nll.
 acme-rules = "nll_acme_rules:build_plugin"
 ```
 
-The factory returns a `Plugin` with a matching `name`, a `rules` mapping in the same shape as `[rules]`, and an optional `code_rules` mapping from rule identifier to a `CodeRule` subclass. Each code rule must also have a definition in `rules`.
+The factory returns a `Plugin` with a matching `name` and a `rules` mapping in the same shape as `[rules]`. Code rule subclasses register themselves when the package imports them. Each code rule needs a definition in `rules`.
 
 ### Check configuration
 `nll rules` prints every rule with its resolved on/off state and whether Python or the model checks it.
@@ -213,3 +217,5 @@ uv tool install --editable .
 ## Acknowledgments
 
 The CLH and WIK rules are adapted from [Simon Willison's LLM cliche highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html).
+
+For a broader collection of deterministic prose checks, see [Proselint](https://github.com/amperser/proselint).

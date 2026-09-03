@@ -125,7 +125,9 @@ def test_claude_judge_fails_on_invalid_structured_output(
     monkeypatch.setattr("nll.judge.query", invalid_query)
 
     with pytest.raises(RuntimeError, match="invalid structured output"):
-        asyncio.run(get_model_judge(["SLO001"]).judge(Document("text", "x.md")))
+        asyncio.run(
+            get_model_judge(["SLO001"]).judge(Document(prose="text", path=Path("x.md")))
+        )
 
 
 def test_codex_judge_sends_read_only_request_and_parses_response(

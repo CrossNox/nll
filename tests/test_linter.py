@@ -86,7 +86,14 @@ def test_lint_runs_code_rules_and_returns_sorted_violations() -> None:
 def test_lint_omits_code_blocks_before_running_code_rules() -> None:
     linter = Linter.from_config(SHIPPED_CONFIG_FILE, select=["CHR004"])
 
-    violations = linter.lint_text("```python\ninside;\n```\noutside;")
+    violations = asyncio.run(
+        linter.lint(
+            Document(
+                path=Path("notes.md"),
+                prose="```python\ninside;\n```\noutside;",
+            )
+        )
+    )
 
     assert [(item.line, item.offset) for item in violations] == [(4, 8)]
 
@@ -149,6 +156,30 @@ def test_lint_paths_reads_files_and_reports_the_file_count(
         tmp_path / "a.md",
         tmp_path / "b.txt",
     ]
+
+
+def test_lint_paths_lints_explicit_files_without_an_extension(tmp_path: Path) -> None:
+    path = tmp_path / "LICENSE"
+    path.write_text("A; B", encoding="utf-8")
+    linter = Linter.from_config(SHIPPED_CONFIG_FILE, select=["CHR004"])
+
+    violations = linter.lint_paths([path])
+
+    assert [item.path for item in violations] == [path]
+
+
+def test_lint_paths_lints_configured_unknown_extensions(tmp_path: Path) -> None:
+    path = tmp_path / "notes.markdown"
+    path.write_text("A; B", encoding="utf-8")
+    linter = Linter.from_config(
+        SHIPPED_CONFIG_FILE,
+        select=["CHR004"],
+        include_extensions=[".markdown"],
+    )
+
+    violations = linter.lint_paths([tmp_path])
+
+    assert [item.path for item in violations] == [path]
 
 
 def test_lint_paths_limits_concurrent_model_calls(

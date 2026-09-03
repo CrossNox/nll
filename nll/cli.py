@@ -8,17 +8,13 @@ import typer
 
 from nll.agents import Agent
 from nll.agents import install_hook as install_agent_hook
-from nll.config import SHIPPED_CONFIG_FILE, discover_config_file, read_config_file
+from nll.config import SHIPPED_CONFIG_FILE, discover_config_file
 from nll.linter import Linter
 from nll.logconfig import (
     DEFAULT_PRETTY,
     DEFAULT_STRUCTURED,
     DEFAULT_VERBOSE,
     config_logging,
-)
-from nll.plugins import (
-    find_installed_plugin_entry_points,
-    read_enabled_plugin_names,
 )
 
 app = typer.Typer(
@@ -192,23 +188,18 @@ def print_shipped_config() -> None:
 
 @app.command(name="plugins")
 def list_plugins(config_file: ConfigOption = None) -> None:
-    """List installed rule packages and whether this project enables them."""
+    """List the rule packages enabled by the active configuration."""
     if config_file is None:
         config_file = discover_config_file(pl.Path.cwd())
 
-    enabled = set(read_enabled_plugin_names(read_config_file(config_file)))
-    installed = find_installed_plugin_entry_points()
+    linter = Linter.from_config(config_file)
 
-    if len(installed) == 0 and len(enabled) == 0:
-        print("No nll plugins installed.")
+    if len(linter.config.plugins) == 0:
+        print("No nll plugins enabled.")
         return
 
-    for name in sorted(installed):
-        status = "ON" if name in enabled else "OFF"
-        print(f"[{status}] {name}")
-
-    for name in sorted(enabled - installed.keys()):
-        print(f"[MISSING] {name}")
+    for plugin in linter.config.plugins:
+        print(plugin.name)
 
 
 @app.command()

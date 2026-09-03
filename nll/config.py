@@ -1,7 +1,6 @@
-"""Find and parse the configuration file.
+"""Find and parse the selected configuration file.
 
-One file is the whole configuration: the project's, the user's, or the shipped
-one. Nothing is layered.
+Linter settings layer the selected configuration over the shipped defaults.
 """
 
 import logging

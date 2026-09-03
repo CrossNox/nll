@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -5,6 +6,7 @@ import typer
 from typer.testing import CliRunner
 
 from nll.cli import app, lint
+from nll.plugins import Plugin
 
 runner = CliRunner()
 
@@ -149,24 +151,44 @@ def test_config_prints_the_shipped_configuration() -> None:
     )
 
 
-def test_plugins_lists_installed_and_enabled_packages(
+def test_plugins_lists_enabled_packages(
     no_user_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(no_user_config)
     (no_user_config / "nll.toml").write_text(
-        'plugins = ["acme-rules", "missing-rules"]\n', encoding="utf-8"
+        'plugins = ["acme-rules"]\n', encoding="utf-8"
     )
-    monkeypatch.setattr(
-        "nll.cli.find_installed_plugin_entry_points",
-        lambda: {"acme-rules": object(), "house-rules": object()},
-    )
+
+    class FakeEntryPoint:
+        name = "acme-rules"
+
+        def load(self) -> Callable[[], Plugin]:
+            return lambda: Plugin(
+                name="acme-rules",
+                rules={"ACM": {"description": "Acme", "001": "An Acme rule."}},
+            )
+
+    monkeypatch.setattr("nll.plugins.entry_points", lambda *, group: [FakeEntryPoint()])
 
     result = runner.invoke(app, ["plugins"])
 
     assert result.exit_code == 0
-    assert "[ON] acme-rules" in result.stdout
-    assert "[OFF] house-rules" in result.stdout
-    assert "[MISSING] missing-rules" in result.stdout
+    assert result.stdout == "acme-rules\n"
+
+
+def test_plugins_rejects_a_missing_enabled_package(
+    no_user_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(no_user_config)
+    (no_user_config / "nll.toml").write_text(
+        'plugins = ["missing-rules"]\n', encoding="utf-8"
+    )
+    monkeypatch.setattr("nll.plugins.entry_points", lambda *, group: [])
+
+    result = runner.invoke(app, ["plugins"])
+
+    assert result.exit_code != 0
+    assert isinstance(result.exception, ValueError)
 
 
 def test_bad_config_fails_with_a_cli_error(

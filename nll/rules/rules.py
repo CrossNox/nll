@@ -5,7 +5,7 @@ from copy import copy
 from itertools import chain
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, ValidationInfo, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from nll.document import Document
 from nll.logconfig import get_logger
@@ -126,16 +126,9 @@ class RulesDefinitions(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def build_rules(
-        cls, sections: dict[str, Any], info: ValidationInfo
-    ) -> dict[str, Any]:
+    def build_rules(cls, sections: dict[str, Any]) -> dict[str, Any]:
         """Build one rule per code in every section."""
         rules_sections: list[dict[str, Any]] = []
-        code_rule_types = (
-            info.context.get("code_rule_types", CodeRule.registry)
-            if info.context is not None
-            else CodeRule.registry
-        )
 
         for section_name, section in sections.items():
             definitions = copy(section)
@@ -178,7 +171,7 @@ class RulesDefinitions(BaseModel):
                                 "must be a description, or a description with arguments"
                             )
 
-                    rule_class = code_rule_types.get(
+                    rule_class = CodeRule.registry.get(
                         f"{section_name}{code}", ModelRule
                     )
 

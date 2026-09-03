@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -72,13 +73,16 @@ def test_rulebook_extend_selection_and_ignore_are_prefix_based(
 
 
 def test_regex_rules_compile_and_report_matches() -> None:
-    definitions = RulesDefinitions.model_validate(
-        {"RGX": {"description": "Patterns", "001": r"X is not [^,]+, it's [^.]+"}}
+    definitions = RulesDefinitions.build(
+        {"RGX": {"description": "Patterns", "001": r"X is not [^,]+, it's [^.]+"}},
+        CodeRule.registry,
     )
     rule = definitions.sections[0].rules[0]
 
     assert isinstance(rule, RegexRule)
-    violations = list(rule(Document(prose="X is not slow, it's fast", path="x")))
+    violations = list(
+        rule(Document(prose="X is not slow, it's fast", path=Path("x.md")))
+    )
 
     assert [(item.line, item.offset, item.quote) for item in violations] == [
         (1, 1, "X is not slow, it's fast")
@@ -87,8 +91,9 @@ def test_regex_rules_compile_and_report_matches() -> None:
 
 def test_invalid_regex_is_rejected() -> None:
     with pytest.raises(ValueError, match="Invalid regular expression for RGX001"):
-        RulesDefinitions.model_validate(
-            {"RGX": {"description": "Patterns", "001": "["}}
+        RulesDefinitions.build(
+            {"RGX": {"description": "Patterns", "001": "["}},
+            CodeRule.registry,
         )
 
 
@@ -107,7 +112,7 @@ def test_malformed_rule_definitions_raise_clear_errors(
     groups: dict[str, Any], message: str
 ) -> None:
     with pytest.raises(ValueError, match=message):
-        RulesDefinitions.model_validate(groups)
+        RulesDefinitions.build(groups, CodeRule.registry)
 
 
 def test_rulebook_string_shows_state_and_checker(rulebook: RuleBook) -> None:
