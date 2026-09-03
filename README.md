@@ -76,6 +76,19 @@ abc = "Shows a credential or token in an example"
 
 That defines `SEC001` and `SECabc`, judged by the model. `nll` shows the group description to the model above its rules, so make it say what the group is for.
 
+The reserved `RGX` group defines regular expression rules. Every value under
+`[rules.RGX]` is compiled as a Python regular expression and is enabled by
+default:
+
+```toml
+[rules.RGX]
+description = "Patterns to avoid"
+001 = "X is not (.*), it's (.*)"
+```
+
+Each non-overlapping match is reported separately, with the full match as the
+quoted text. Invalid regular expressions fail configuration.
+
 If the rule requires configurable parameters:
 
 ```toml

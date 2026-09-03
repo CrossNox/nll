@@ -1,5 +1,5 @@
 # Prefixes expand: SCH means every SCH rule.
-select = ["SCH", "SLO", "ZIN", "CHR", "LEN"]
+select = ["SCH", "SLO", "ZIN", "CHR", "LEN", "RGX"]
 extend-select = []
 ignore = ["CHR000", "LEN001"]
 
@@ -55,3 +55,6 @@ description = "Characters that must not appear in prose"
 description = "Length and concision"
 001 = { description = "The text has more than {max_sentences} sentences.", max-sentences = 3 }
 002 = "Not concise. The text includes material the reader did not ask for: justification, background, alternatives or caveats."
+
+[rules.RGX]
+description = "Patterns to avoid"

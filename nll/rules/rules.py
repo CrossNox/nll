@@ -1,3 +1,4 @@
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Sequence
 from copy import copy
@@ -8,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from nll.document import Document
 from nll.logconfig import get_logger
-from nll.violations import Violations
+from nll.violations import Violation, Violations
 
 logger = get_logger(__name__)
 
@@ -63,6 +64,52 @@ class CodeRule(Rule, ABC):
         raise NotImplementedError
 
 
+class RegexRule(CodeRule):
+    """Report every match of a configured regular expression."""
+
+    def __init__(
+        self,
+        section: str,
+        code: str,
+        description: str,
+        **arguments: Any,
+    ) -> None:
+        super().__init__(section, code, description, **arguments)
+
+        try:
+            self.pattern = re.compile(description)
+        except re.error as error:
+            logger.error(
+                "Invalid regular expression for %s: %s", self.identifier, error
+            )
+            raise ValueError(
+                f"Invalid regular expression for {self.identifier}: {error}"
+            ) from error
+
+    @property
+    def description(self) -> str:
+        return self._description
+
+    def __call__(self, document: Document) -> Violations:
+        violations = []
+
+        for match in self.pattern.finditer(document.prose):
+            line = document.prose.count("\n", 0, match.start()) + 1
+            line_start = document.prose.rfind("\n", 0, match.start()) + 1
+
+            violations.append(
+                Violation(
+                    rule=self,
+                    path=document.path,
+                    line=line,
+                    offset=match.start() - line_start + 1,
+                    quote=match.group(0),
+                )
+            )
+
+        return Violations(violations)
+
+
 class RulesSection(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -100,26 +147,41 @@ class RulesDefinitions(BaseModel):
                 description: str
                 arguments: dict[str, Any]
 
-                match definition:
-                    case {"description": description, **rest}:
-                        arguments = {
-                            key.replace("-", "_"): value for key, value in rest.items()
-                        }
-                    case {}:
-                        logger.error("Bad config for %s%s", section_name, code)
-                        raise ValueError(
-                            f"Bad config for {section_name}{code}: no description"
-                        )
-                    case str():
-                        description, arguments = definition, {}
-                    case _:
+                if section_name == "RGX":
+                    if not isinstance(definition, str):
                         logger.error("Bad config for %s%s", section_name, code)
                         raise ValueError(
                             f"Bad config for {section_name}{code}: "
-                            "must be a description, or a description with arguments"
+                            "must be a regular expression string"
                         )
 
-                rule_class = CodeRule.registry.get(f"{section_name}{code}", ModelRule)
+                    description, arguments = definition, {}
+                    rule_class = RegexRule
+                else:
+                    match definition:
+                        case {"description": description, **rest}:
+                            arguments = {
+                                key.replace("-", "_"): value
+                                for key, value in rest.items()
+                            }
+                        case {}:
+                            logger.error("Bad config for %s%s", section_name, code)
+                            raise ValueError(
+                                f"Bad config for {section_name}{code}: no description"
+                            )
+                        case str():
+                            description, arguments = definition, {}
+                        case _:
+                            logger.error("Bad config for %s%s", section_name, code)
+                            raise ValueError(
+                                f"Bad config for {section_name}{code}: "
+                                "must be a description, or a description with arguments"
+                            )
+
+                    rule_class = CodeRule.registry.get(
+                        f"{section_name}{code}", ModelRule
+                    )
+
                 rules.append(
                     rule_class(
                         section=section_name,
