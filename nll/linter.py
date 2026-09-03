@@ -84,7 +84,7 @@ class LinterConfig(BaseModel):
 class Linter:
     """Run the enabled rules over documents."""
 
-    def __init__(self, config: LinterConfig):
+    def __init__(self, config: LinterConfig, model_judge: ModelJudge | None = None):
         self.config: LinterConfig = config
         self.rules: RuleBook = RuleBook(
             rules_definitions=self.config.rules,
@@ -92,6 +92,14 @@ class Linter:
             extend_select=self.config.extend_select,
             ignore=self.config.ignore,
         )
+
+        if model_judge is not None:
+            self.llm_judge = model_judge
+        else:
+            self.llm_judge = {
+                Agent.CLAUDE: ClaudeModelJudge,
+                Agent.CODEX: CodexModelJudge,
+            }[self.config.agent](rules=self.rules.model_rules, model=self.config.model)
 
     @classmethod
     def from_config(
@@ -121,15 +129,8 @@ class Linter:
             include_extensions=include_extensions,
         )
 
-        configured_agent = agent
-        if configured_agent is None:
-            configured_agent = Agent(file_settings.get("agent", settings["agent"]))
-
-        if model is None and (
-            agent is not None
-            or ("agent" in file_settings and "model" not in file_settings)
-        ):
-            settings["model"] = DEFAULT_AGENT_MODELS[configured_agent]
+        if settings["model"] is None:
+            settings["model"] = DEFAULT_AGENT_MODELS[settings["agent"]]
 
         try:
             configured = LinterConfig.model_validate(settings)
@@ -161,9 +162,7 @@ class Linter:
             violations.extend(rule(document))
 
         if len(self.rules.model_rules) > 0:
-            llm_judge = self._create_model_judge()
-
-            violations.extend(await llm_judge.judge(document))
+            violations.extend(await self.llm_judge.judge(document))
 
         logger.info(
             "%s violations found%s",
@@ -172,15 +171,6 @@ class Linter:
         )
 
         return violations
-
-    def _create_model_judge(self) -> ModelJudge:
-        """Create the judge selected by the configuration."""
-        judge_types: dict[Agent, type[ModelJudge]] = {
-            Agent.CLAUDE: ClaudeModelJudge,
-            Agent.CODEX: CodexModelJudge,
-        }
-        judge_type = judge_types[self.config.agent]
-        return judge_type(self.rules.model_rules, self.config.model)
 
     def lint_text(self, text: str) -> Violations:
         """Lint text."""

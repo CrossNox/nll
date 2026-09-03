@@ -58,15 +58,6 @@ class ModelJudge(ABC):
     def __init__(self, rules: Sequence[ModelRule], model: str) -> None:
         self.rules = {rule.identifier: rule for rule in rules}
         self.model = model
-
-    @abstractmethod
-    async def judge(self, document: Document) -> Violations:
-        """Judge one document and return its violations."""
-
-
-class _RuleModelJudge(ModelJudge):
-    def __init__(self, rules: Sequence[ModelRule], model: str):
-        super().__init__(rules, model)
         rule_names = {name: name for name in self.rules}
         rule_identifier = StrEnum("rule_identifier", rule_names)  # type: ignore[misc]
         self.report_model = Report[rule_identifier]
@@ -76,6 +67,10 @@ class _RuleModelJudge(ModelJudge):
         self.system_prompt = (
             jinja_env.get_template("prompt.md.j2").render(rules=rules).strip()
         )
+
+    @abstractmethod
+    async def judge(self, document: Document) -> Violations:
+        """Judge one document and return its violations."""
 
     def render_prompt_for_document(self, document: Document) -> str:
         """Render the document prompt for the model."""
@@ -88,7 +83,7 @@ class _RuleModelJudge(ModelJudge):
         )
         return f"Lint the following text.\n\n<text>\n{document.prose}\n</text>"
 
-    def locate[IdentifierT: str](
+    def locate_violation_in_document[IdentifierT: str](
         self, reported: ReportedViolation[IdentifierT], document: Document
     ) -> Violation:
         """Place a reported violation at the line its quote sits on."""
@@ -115,7 +110,7 @@ class _RuleModelJudge(ModelJudge):
         raise RuntimeError("Could not find the quote in the document.")
 
 
-class ClaudeModelJudge(_RuleModelJudge):
+class ClaudeModelJudge(ModelJudge):
     """Judge model rules with Claude."""
 
     def __init__(self, rules: Sequence[ModelRule], model: str):
@@ -176,11 +171,12 @@ class ClaudeModelJudge(_RuleModelJudge):
             "%s: Claude found %d violations", document.path, len(report.violations)
         )
         return Violations(
-            self.locate(reported, document) for reported in report.violations
+            self.locate_violation_in_document(reported, document)
+            for reported in report.violations
         )
 
 
-class CodexModelJudge(_RuleModelJudge):
+class CodexModelJudge(ModelJudge):
     """Judge model rules with Codex."""
 
     async def judge(self, document: Document) -> Violations:
@@ -227,5 +223,6 @@ class CodexModelJudge(_RuleModelJudge):
             "%s: Codex found %d violations", document.path, len(report.violations)
         )
         return Violations(
-            self.locate(reported, document) for reported in report.violations
+            self.locate_violation_in_document(reported, document)
+            for reported in report.violations
         )
