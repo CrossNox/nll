@@ -2,7 +2,7 @@
 
 import pathlib as pl
 import sys
-from typing import Annotated, NoReturn
+from typing import Annotated
 
 import typer
 
@@ -23,20 +23,6 @@ app = typer.Typer(
     pretty_exceptions_short=True,
     pretty_exceptions_enable=False,
 )
-
-
-def format_error_message(error: BaseException) -> str:
-    """Format an application error without its traceback."""
-    if isinstance(error, BaseExceptionGroup):
-        return "\n".join(format_error_message(item) for item in error.exceptions)
-
-    return str(error)
-
-
-def exit_with_error(error: BaseException) -> NoReturn:
-    """Print an application error and exit with a failure status."""
-    typer.echo(f"Error: {format_error_message(error)}", err=True)
-    raise typer.Exit(code=2)
 
 
 PathsArgument = Annotated[
@@ -144,8 +130,12 @@ def lint(
             violations = linter.lint_text(sys.stdin.read())
         else:
             violations = linter.lint_paths(paths)
-    except Exception as error:  # noqa: BLE001
-        exit_with_error(error)
+    except ExceptionGroup as error:
+        typer.echo(f"Error: {error.exceptions[0]}", err=True)
+        raise typer.Exit(code=2) from None
+    except (OSError, RuntimeError, TypeError, ValueError, typer.BadParameter) as error:
+        typer.echo(f"Error: {error}", err=True)
+        raise typer.Exit(code=2) from None
 
     print(violations)
 

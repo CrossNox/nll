@@ -2,20 +2,32 @@
 
 import asyncio
 import logging
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, ValidationError
 
-from nll.agents import Agent
+from nll.agents import DEFAULT_AGENT_MODELS, Agent
 from nll.config import SHIPPED_CONFIG_FILE, read_config_file
 from nll.document import Document
-from nll.judge import ModelJudge
-from nll.rules import RuleBook, RulesDefinitions
+from nll.rules import ModelRule, RuleBook, RulesDefinitions
 from nll.violations import Violations
 
 logger = logging.getLogger(__name__)
+
+
+class ModelJudge(ABC):
+    """Judge model rules for one document."""
+
+    def __init__(self, rules: Sequence[ModelRule], model: str) -> None:
+        self.rules = {rule.identifier: rule for rule in rules}
+        self.model = model
+
+    @abstractmethod
+    async def judge(self, document: Document) -> Violations:
+        """Judge one document and return its violations."""
 
 
 def merge_settings(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:
@@ -74,7 +86,7 @@ class LinterConfig(BaseModel):
     ignore: list[str]
 
     agent: Agent
-    model: str | None = None
+    model: str
 
     max_concurrency: PositiveInt = Field(alias="max-concurrency")
     include_extensions: list[str] = Field(alias="include-extensions")
@@ -108,8 +120,8 @@ class Linter:
         include_extensions: Sequence[str] | None = None,
     ) -> "Linter":
         """Read the config file and apply overrides."""
-        settings = read_config_file(config_file)
-        settings = merge_shipped_settings(settings)
+        file_settings = read_config_file(config_file)
+        settings = merge_shipped_settings(file_settings)
         settings = apply_settings_overrides(
             settings,
             select=select,
@@ -120,6 +132,16 @@ class Linter:
             max_concurrency=max_concurrency,
             include_extensions=include_extensions,
         )
+
+        configured_agent = agent
+        if configured_agent is None:
+            configured_agent = Agent(file_settings.get("agent", settings["agent"]))
+
+        if model is None and (
+            agent is not None
+            or ("agent" in file_settings and "model" not in file_settings)
+        ):
+            settings["model"] = DEFAULT_AGENT_MODELS[configured_agent]
 
         try:
             configured = LinterConfig.model_validate(settings)
@@ -151,13 +173,9 @@ class Linter:
             violations.extend(rule(document))
 
         if len(self.rules.model_rules) > 0:
-            llm_judge = ModelJudge(
-                self.rules.model_rules,
-                agent=self.config.agent,
-                model=self.config.model,
-            )
+            llm_judge = self._create_model_judge()
 
-            violations.extend(await llm_judge(document))
+            violations.extend(await llm_judge.judge(document))
 
         logger.info(
             "%s violations found%s",
@@ -166,6 +184,17 @@ class Linter:
         )
 
         return violations
+
+    def _create_model_judge(self) -> ModelJudge:
+        """Create the judge selected by the configuration."""
+        from nll.judge import ClaudeModelJudge, CodexModelJudge
+
+        judge_types: dict[Agent, type[ModelJudge]] = {
+            Agent.CLAUDE: ClaudeModelJudge,
+            Agent.CODEX: CodexModelJudge,
+        }
+        judge_type = judge_types[self.config.agent]
+        return judge_type(self.rules.model_rules, self.config.model)
 
     def lint_text(self, text: str) -> Violations:
         """Lint text."""

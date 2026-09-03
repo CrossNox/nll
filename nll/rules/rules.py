@@ -103,8 +103,7 @@ class RulesDefinitions(BaseModel):
                 match definition:
                     case {"description": description, **rest}:
                         arguments = {
-                            str(key).replace("-", "_"): value
-                            for key, value in rest.items()
+                            key.replace("-", "_"): value for key, value in rest.items()
                         }
                     case {}:
                         logger.error("Bad config for %s%s", section_name, code)

@@ -59,8 +59,8 @@ ignore = ["CHR000", "LEN001"]
 
 # Agent used for model-judged rules. The model defaults to the selected agent.
 agent = "claude"
-# Optional model alias or id passed to the selected backend.
-# model = "claude-opus-5"
+# Model alias or id passed to the selected backend.
+model = "claude-opus-5"
 
 # Skip fenced code blocks and inline code for every rule, the model included.
 ignore-code = true

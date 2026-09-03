@@ -9,8 +9,10 @@ max-concurrency = 4
 # Extensions linted when a directory is given. Hidden directories are skipped.
 include-extensions = [".md", ".txt", ".rst"]
 
-# Agent used for model-judged rules. The model defaults to the selected agent.
+# Agent used for model-judged rules.
 agent = "claude"
+# Model alias or id passed to the selected backend.
+model = "claude-opus-5"
 
 
 # A rule's identifier is its section prefix followed by its code, so SCH and

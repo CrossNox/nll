@@ -1,25 +1,23 @@
 """Install nll commands for supported coding agents."""
 
 import logging
+from enum import StrEnum
 from pathlib import Path
-from typing import Literal
 
 logger = logging.getLogger(__name__)
 
-Agent = Literal["codex", "claude"]
+
+class Agent(StrEnum):
+    """Select the model backend for model-judged rules."""
+
+    CLAUDE = "claude"
+    CODEX = "codex"
+
 
 DEFAULT_AGENT_MODELS: dict[Agent, str] = {
-    "claude": "claude-opus-5",
-    "codex": "gpt-5.6-luna",
+    Agent.CLAUDE: "claude-opus-5",
+    Agent.CODEX: "gpt-5.6-luna",
 }
-
-
-def find_default_model_for_agent(agent: Agent) -> str:
-    """Return the default model for an agent."""
-    try:
-        return DEFAULT_AGENT_MODELS[agent]
-    except KeyError as error:
-        raise ValueError(f"Unsupported model agent: {agent!r}") from error
 
 
 NLL_COMMAND = """---
@@ -37,13 +35,14 @@ reports no violations, say that the response is clean.
 """
 
 AGENT_COMMAND_DIRECTORIES: dict[Agent, tuple[str, str]] = {
-    "claude": (".claude", "commands"),
-    "codex": (".codex", "prompts"),
+    Agent.CLAUDE: (".claude", "commands"),
+    Agent.CODEX: (".codex", "prompts"),
 }
 
 
 def install_hook(agent: Agent, *, local: bool) -> Path:
     """Install the nll command for an agent and return its path."""
+    agent = Agent(agent)
     agent_directory, command_directory = AGENT_COMMAND_DIRECTORIES[agent]
     base_directory = Path.cwd() if local else Path.home()
     command_path = base_directory / agent_directory / command_directory / "nll.md"
