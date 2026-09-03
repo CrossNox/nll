@@ -1,5 +1,5 @@
 # Prefixes expand: SCH means every SCH rule.
-select = ["SCH", "SLO", "ZIN", "CHR", "LEN", "RGX", "CLH"]
+select = ["SCH", "SLO", "ZIN", "CHR", "LEN", "RGX", "CLH", "WIK"]
 extend-select = []
 ignore = ["CHR000", "LEN001"]
 
@@ -91,14 +91,17 @@ description = "LLM cliches adapted from Simon Willison's LLM cliche highlighter"
 025 = "X is dead."
 026 = "That's why X mattered."
 027 = "Stranded auxiliary contrast."
-028 = "AI vocabulary words."
-029 = "Not just X, but Y."
-030 = "It's important to note."
-031 = "Stands as a testament."
-032 = "Plays a crucial role."
-033 = "Ever-evolving landscape."
-034 = "Experts argue."
-035 = "Despite these challenges."
-036 = "Participle sentence tails."
-037 = "Promotional boilerplate."
-038 = "Chatbot leftovers."
+
+[rules.WIK]
+description = "Signs of AI writing adapted from Wikipedia"
+001 = "AI vocabulary words."
+002 = "Not just X, but Y."
+003 = "It's important to note."
+004 = "Stands as a testament."
+005 = "Plays a crucial role."
+006 = "Ever-evolving landscape."
+007 = "Experts argue."
+008 = "Despite these challenges."
+009 = "Participle sentence tails."
+010 = "Promotional boilerplate."
+011 = "Chatbot leftovers."

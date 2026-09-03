@@ -246,7 +246,13 @@ def get_rule(rulebook: RuleBook, identifier: str) -> CodeRule:
 def test_cliche_rule_matches_source_cases(
     rulebook: RuleBook, code: str, prose: str, expected_matches: int
 ) -> None:
-    rule = get_rule(rulebook, f"CLH{code}")
+    source_code = int(code)
+    identifier = (
+        f"CLH{source_code:03}"
+        if source_code <= 27
+        else f"WIK{source_code - 27:03}"
+    )
+    rule = get_rule(rulebook, identifier)
 
     violations = list(rule(Document(prose=prose, path="notes.md")))
 
@@ -264,15 +270,26 @@ def test_cliche_rule_reports_match_location_and_quote(rulebook: RuleBook) -> Non
     ]
 
 
-def test_cliche_rules_are_enabled_code_rules(rulebook: RuleBook) -> None:
+def test_imported_rules_are_enabled_code_rules(rulebook: RuleBook) -> None:
     cliche_rules = [
         rule
         for rule in rulebook.rules_definitions.iter_rules()
         if rule.identifier.startswith("CLH")
     ]
+    wikipedia_rules = [
+        rule
+        for rule in rulebook.rules_definitions.iter_rules()
+        if rule.identifier.startswith("WIK")
+    ]
 
     assert [rule.identifier for rule in cliche_rules] == [
-        f"CLH{code:03}" for code in range(1, 39)
+        f"CLH{code:03}" for code in range(1, 28)
     ]
-    assert all(isinstance(rule, CodeRule) for rule in cliche_rules)
-    assert all(rule.identifier in rulebook.rules_on for rule in cliche_rules)
+    assert [rule.identifier for rule in wikipedia_rules] == [
+        f"WIK{code:03}" for code in range(1, 12)
+    ]
+    assert all(isinstance(rule, CodeRule) for rule in [*cliche_rules, *wikipedia_rules])
+    assert all(
+        rule.identifier in rulebook.rules_on
+        for rule in [*cliche_rules, *wikipedia_rules]
+    )

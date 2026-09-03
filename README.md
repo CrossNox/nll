@@ -161,17 +161,17 @@ A description can name the rule's options in braces. Write an option name with u
 | CLH025 | on | X is dead. |
 | CLH026 | on | That's why X mattered. |
 | CLH027 | on | Stranded auxiliary contrast. |
-| CLH028 | on | AI vocabulary words. |
-| CLH029 | on | Not just X, but Y. |
-| CLH030 | on | It's important to note. |
-| CLH031 | on | Stands as a testament. |
-| CLH032 | on | Plays a crucial role. |
-| CLH033 | on | Ever-evolving landscape. |
-| CLH034 | on | Experts argue. |
-| CLH035 | on | Despite these challenges. |
-| CLH036 | on | Participle sentence tails. |
-| CLH037 | on | Promotional boilerplate. |
-| CLH038 | on | Chatbot leftovers. |
+| WIK001 | on | AI vocabulary words. |
+| WIK002 | on | Not just X, but Y. |
+| WIK003 | on | It's important to note. |
+| WIK004 | on | Stands as a testament. |
+| WIK005 | on | Plays a crucial role. |
+| WIK006 | on | Ever-evolving landscape. |
+| WIK007 | on | Experts argue. |
+| WIK008 | on | Despite these challenges. |
+| WIK009 | on | Participle sentence tails. |
+| WIK010 | on | Promotional boilerplate. |
+| WIK011 | on | Chatbot leftovers. |
 
 ## Develop
 
@@ -186,4 +186,4 @@ uv tool install --editable .
 
 ## Acknowledgments
 
-The CLH rules are adapted from [Simon Willison's LLM cliche highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html).
+The CLH and WIK rules are adapted from [Simon Willison's LLM cliche highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html).
