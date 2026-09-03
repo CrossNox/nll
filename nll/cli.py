@@ -137,10 +137,17 @@ def lint(
         typer.echo(f"Error: {error}", err=True)
         raise typer.Exit(code=2) from None
 
+    if len(violations) == 0:
+        print("No violations found.")
+        return
+
     print(violations)
 
-    if len(violations) > 0:
-        raise typer.Exit(code=1)
+    file_label = "file" if linter.linted_file_count == 1 else "files"
+    file_count = len(set(v.path for v in violations))
+    print(f"Found {len(violations)} violations across " f"{file_count} {file_label}.")
+
+    raise typer.Exit(code=1)
 
 
 @app.command(name="rules")

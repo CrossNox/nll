@@ -88,39 +88,39 @@ abc = "Shows a credential or token in an example"
 
 [rules.SEC.xyz]
 description = "Do now show more {n_files} files in the current directory"
-n-files: 3
+n-files = 3
 ```
 
-A description can name the rule's options in braces. Write an option name with underscores, so `max-sentences` becomes `{max_sentences}` and `"More than {max_sentences} sentences."` renders with the configured value.
+A description can name the rule's options in braces. Write an option name with underscores, so `max-sentences` becomes `{max_sentences}` and `"More than {max_sentences} sentences."` renders with the configured value. Options work on Python and model rules. nll renders their values before sending model rules to the judge.
 
 ### Check configuration
 `nll rules` prints every rule with its resolved on/off state and whether Python or the model checks it.
 
 ## Built-in rules
 
-| Code | Rule |
-| --- | --- |
-| SCH001 | tricolon |
-| SCH002 | isocolon |
-| SCH003 | anaphora |
-| SCH004 | antithesis |
-| SCH005 | chiasmus |
-| SCH006 | asyndeton |
-| SCH007 | alliterative pairing |
-| SCH008 | epigrammatic closer |
-| SCH000 | other scheme |
-| SLO001 | slogan |
-| ZIN001 | simplicity |
-| ZIN002 | brevity |
-| ZIN003 | clarity |
-| ZIN004 | humanity |
-| CHR001 | em dash |
-| CHR002 | en dash |
-| CHR003 | middle dot |
-| CHR004 | semicolon |
-| CHR000 | other non-ASCII character (off by default) |
-| LEN001 | more than `max-sentences` sentences (off by default) |
-| LEN002 | not concise |
+| Code | Default | Rule |
+| --- | --- | --- |
+| SCH001 | on | Tricolon. Three parallel words, phrases or clauses arranged as a series for rhythm or emphasis. Example: 'It is fast, small and simple.' A list of three things that happen to be three is fine, the arrangement for effect is not. |
+| SCH002 | on | Isocolon. Two or more clauses of matching length and grammatical structure, set side by side for balance. Example: 'Simple to learn, hard to master.' |
+| SCH003 | on | Anaphora. The same word or phrase opening successive clauses or sentences. Example: 'No config. No setup. No surprises.' |
+| SCH004 | on | Antithesis. Contrasting ideas placed in parallel structure. Example: 'Not because it is easy, but because it is hard.' |
+| SCH005 | on | Chiasmus. Words or structure repeated in reverse order across two clauses. Example: 'Ask not what your country can do for you, ask what you can do for your country.' |
+| SCH006 | on | Asyndeton. Conjunctions dropped from a series of clauses or phrases to quicken the pace. Example: 'I came, I saw, I conquered.' |
+| SCH007 | on | Alliterative pairing. Two or more nearby words chosen for a shared initial sound. Example: 'fast and fluid', 'bold and brave'. |
+| SCH008 | on | Epigrammatic closer. A short, pithy, quotable sentence used to close a paragraph or the whole text. Example: ending a paragraph with 'Simple tools, simple problems.' |
+| SCH000 | on | Other scheme. Any scheme not covered above: epistrophe, polysyndeton, climax, symploce, and the like. |
+| SLO001 | on | Slogan. A sentence written to be quoted rather than to inform. Example: 'Ship less, sleep more.' |
+| ZIN001 | on | Simplicity. The sentence is more complex than the idea it carries, through long-winded construction or jargon where a plain word exists. |
+| ZIN002 | on | Brevity. Words that do no work: padding, redundant pairs, throat-clearing openers and restating what was already said. |
+| ZIN003 | on | Clarity. The reader cannot tell what is meant: ambiguous pronouns, vague references, undefined terms, sentences that need a second reading. |
+| ZIN004 | on | Humanity. The writing does not sound like one person talking to another: stiff, bureaucratic, impersonal, over-hedged, or passive voice hiding who did what. |
+| CHR001 | on | Em dash (U+2014). |
+| CHR002 | on | En dash (U+2013). |
+| CHR003 | on | Middle dot (U+00B7). |
+| CHR004 | on | Semicolon. |
+| CHR000 | off | Any non-ASCII character not covered by another CHR rule. |
+| LEN001 | off | The text has more than 3 sentences. |
+| LEN002 | on | Not concise. The text includes material the reader did not ask for: justification, background, alternatives or caveats. |
 
 ## Develop
 
