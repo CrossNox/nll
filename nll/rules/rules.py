@@ -78,7 +78,7 @@ class RegexRule(CodeRule):
 
         try:
             self.pattern = re.compile(description)
-        except re.error as error:
+        except (re.error, TypeError) as error:
             logger.error(
                 "Invalid regular expression for %s: %s", self.identifier, error
             )
@@ -148,13 +148,6 @@ class RulesDefinitions(BaseModel):
                 arguments: dict[str, Any]
 
                 if section_name == "RGX":
-                    if not isinstance(definition, str):
-                        logger.error("Bad config for %s%s", section_name, code)
-                        raise ValueError(
-                            f"Bad config for {section_name}{code}: "
-                            "must be a regular expression string"
-                        )
-
                     description, arguments = definition, {}
                     rule_class = RegexRule
                 else:
