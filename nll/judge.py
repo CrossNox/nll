@@ -10,7 +10,7 @@ from typing import Any
 import jinja2
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 from openai_codex import AsyncCodex, Sandbox
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from nll.agents import Agent, find_default_model_for_agent
 from nll.document import Document
@@ -40,12 +40,16 @@ def _prepare_env() -> jinja2.Environment:
 class ReportedViolation[IdentifierT](BaseModel):
     """Carry a violation as the model reports it, before its quote is located."""
 
+    model_config = ConfigDict(extra="forbid")
+
     identifier: IdentifierT
     quote: str
 
 
 class Report[IdentifierT](BaseModel):
     """Carry what the model returns for one document."""
+
+    model_config = ConfigDict(extra="forbid")
 
     violations: list[ReportedViolation[IdentifierT]]
 
