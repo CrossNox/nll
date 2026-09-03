@@ -149,6 +149,26 @@ def test_config_prints_the_shipped_configuration() -> None:
     )
 
 
+def test_plugins_lists_installed_and_enabled_packages(
+    no_user_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(no_user_config)
+    (no_user_config / "nll.toml").write_text(
+        'plugins = ["acme-rules", "missing-rules"]\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        "nll.cli.find_installed_plugin_entry_points",
+        lambda: {"acme-rules": object(), "house-rules": object()},
+    )
+
+    result = runner.invoke(app, ["plugins"])
+
+    assert result.exit_code == 0
+    assert "[ON] acme-rules" in result.stdout
+    assert "[OFF] house-rules" in result.stdout
+    assert "[MISSING] missing-rules" in result.stdout
+
+
 def test_bad_config_fails_with_a_cli_error(
     no_user_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

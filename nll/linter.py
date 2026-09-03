@@ -12,7 +12,11 @@ from nll.agents import DEFAULT_AGENT_MODELS, Agent
 from nll.config import SHIPPED_CONFIG_FILE, read_config_file
 from nll.document import Document
 from nll.judge import ClaudeModelJudge, CodexModelJudge, ModelJudge
-from nll.rules import RuleBook, RulesDefinitions
+from nll.plugins import (
+    load_enabled_plugins,
+    read_enabled_plugin_names,
+)
+from nll.rules import CodeRule, RuleBook, RulesDefinitions
 from nll.violations import Violations
 
 logger = logging.getLogger(__name__)
@@ -81,6 +85,7 @@ class LinterConfig(BaseModel):
     max_concurrency: PositiveInt = Field(alias="max-concurrency")
     include_extensions: list[str] = Field(alias="include-extensions")
     ignore_code_blocks: bool = Field(alias="ignore-code-blocks")
+    plugins: list[str] = []
     rules: RulesDefinitions
 
 
@@ -120,8 +125,19 @@ class Linter:
         ignore_code_blocks: bool | None = None,
     ) -> "Linter":
         """Read the config file and apply overrides."""
-        settings = read_config_file(config_file)
-        settings = merge_shipped_settings(settings)
+        project_settings = read_config_file(config_file)
+        shipped_settings = read_config_file(SHIPPED_CONFIG_FILE)
+        plugin_names = read_enabled_plugin_names(project_settings)
+        loaded_plugins = load_enabled_plugins(
+            plugin_names,
+            shipped_settings["rules"],
+            CodeRule.registry,
+        )
+        settings = merge_settings(
+            shipped_settings,
+            {"rules": loaded_plugins.rules},
+        )
+        settings = merge_settings(settings, project_settings)
         settings = apply_settings_overrides(
             settings,
             select=select,
@@ -138,7 +154,10 @@ class Linter:
             settings["model"] = DEFAULT_AGENT_MODELS[settings["agent"]]
 
         try:
-            configured = LinterConfig.model_validate(settings)
+            configured = LinterConfig.model_validate(
+                settings,
+                context={"code_rule_types": loaded_plugins.code_rule_types},
+            )
         except ValidationError as error:
             raise ValueError(f"Configuration error: {error}") from error
 

@@ -1,7 +1,7 @@
 # nll
 `nll` is a text linter aimed to catch LLM tells and reduce the complexity of the text produced by them, so that the cognitive load on the reader is reduced and ideas are clearer.
 
-Some built-in rules are checked in code, others (most) are judged by an LLM. Yes, full circle, but kinda works? The goal is to allow for python plugins to be added to check in code if you want to roll your own code rules in a future release. Meanwhile, you can set your own LLM rules in your config file.
+Some built-in rules are checked in code, others (most) are judged by an LLM. You can also install Python rule packages that provide model rules, code rules, or both.
 
 ## Install
 
@@ -105,6 +105,32 @@ n-files = 3
 ```
 
 A description can name the rule's options in braces. Write an option name with underscores, so `max-sentences` becomes `{max_sentences}` and `"More than {max_sentences} sentences."` renders with the configured value. Options work on Python and model rules. nll renders their values before sending model rules to the judge.
+
+#### Installing rule packages
+
+Rule packages are ordinary Python packages. Install one with your preferred package manager, then enable its `nll.plugins` entry-point name:
+
+```sh
+uv tool install nll-acme-rules
+```
+
+```toml
+plugins = ["acme-rules"]
+extend-select = ["ACM"]
+```
+
+The package contributes default sections under `[rules]`. Your configuration can select, ignore, and override those rules in the same way as built-in rules. `nll` rejects a rule identifier supplied by more than one enabled package or by nll itself.
+
+`nll plugins` lists installed packages and marks the packages enabled by the active configuration.
+
+To author a package, declare an entry point that names a factory returning `nll.plugins.Plugin`:
+
+```toml
+[project.entry-points."nll.plugins"]
+acme-rules = "nll_acme_rules:build_plugin"
+```
+
+The factory returns a `Plugin` with a matching `name`, a `rules` mapping in the same shape as `[rules]`, and an optional `code_rules` mapping from rule identifier to a `CodeRule` subclass. Each code rule must also have a definition in `rules`.
 
 ### Check configuration
 `nll rules` prints every rule with its resolved on/off state and whether Python or the model checks it.

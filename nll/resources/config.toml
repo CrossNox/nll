@@ -3,6 +3,9 @@ select = ["SCH", "SLO", "ZIN", "CHR", "LEN", "RGX", "CLH", "WIK"]
 extend-select = []
 ignore = ["CHR000", "LEN001"]
 
+# Add-on package entry-point names. Install their packages with uv or pip.
+plugins = []
+
 # How many documents are linted concurrently. Each document is one model call.
 max-concurrency = 4
 
