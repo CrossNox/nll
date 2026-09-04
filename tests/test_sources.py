@@ -2,40 +2,51 @@ from pathlib import Path
 
 import pytest
 
-from nll.sources import find_files_to_lint, find_matching_files
+from nll.linter import Linter
 
 
-def test_find_matching_files_walks_recursively_and_skips_hidden_directories(
-    tmp_path: Path,
+def test_linter_collects_named_files_and_matching_directory_files(
+    default_linter: Linter, tmp_path: Path
 ) -> None:
-    (tmp_path / "a.md").write_text("a")
-    (tmp_path / "b.py").write_text("b")
+    (tmp_path / "notes.py").write_text("explicit", encoding="utf-8")
     (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "c.txt").write_text("c")
+    (tmp_path / "docs" / "readme.md").write_text("walked", encoding="utf-8")
+    (tmp_path / "docs" / "skip.py").write_text("ignored", encoding="utf-8")
+
+    files = default_linter._collect_lintable_files(
+        [tmp_path / "notes.py", tmp_path / "docs"]
+    )
+
+    assert files == [tmp_path / "notes.py", tmp_path / "docs" / "readme.md"]
+
+
+def test_linter_skips_hidden_directories_and_matches_extensions(
+    default_linter: Linter, tmp_path: Path
+) -> None:
+    (tmp_path / "visible.md").write_text("visible", encoding="utf-8")
     (tmp_path / ".git").mkdir()
-    (tmp_path / ".git" / "d.md").write_text("d")
+    (tmp_path / ".git" / "hidden.md").write_text("hidden", encoding="utf-8")
+    (tmp_path / "UPPER.MD").write_text("uppercase", encoding="utf-8")
 
-    files = find_matching_files(tmp_path, ["*.md", "*.txt"])
+    assert default_linter._collect_matching_files(tmp_path) == [
+        tmp_path / "UPPER.MD",
+        tmp_path / "visible.md",
+    ]
 
-    assert files == [tmp_path / "a.md", tmp_path / "docs" / "c.txt"]
 
-
-def test_find_files_to_lint_keeps_named_files_and_walks_directories(
-    tmp_path: Path,
+def test_linter_rejects_a_missing_input_path(
+    default_linter: Linter, tmp_path: Path
 ) -> None:
-    (tmp_path / "notes.py").write_text("explicit")
-    (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "c.md").write_text("walked")
+    missing = tmp_path / "missing.md"
 
-    files = find_files_to_lint([tmp_path / "notes.py", tmp_path / "docs"], ["*.md"])
-
-    assert files == [tmp_path / "notes.py", tmp_path / "docs" / "c.md"]
+    with pytest.raises(RuntimeError, match="not a file or a directory"):
+        default_linter._collect_lintable_files([missing])
 
 
-def test_find_files_to_lint_warns_about_a_directory_with_no_matching_files(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
+def test_linter_rejects_a_directory_without_matching_files(
+    default_linter: Linter, tmp_path: Path
 ) -> None:
-    (tmp_path / "code.py").write_text("x")
+    (tmp_path / "code.py").write_text("code", encoding="utf-8")
 
-    assert find_files_to_lint([tmp_path], ["*.md"]) == []
-    assert f"{tmp_path}: no files match *.md" in caplog.text
+    with pytest.raises(RuntimeError, match="no files to lint"):
+        default_linter._collect_lintable_files([tmp_path])

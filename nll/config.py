@@ -1,8 +1,4 @@
-"""Find and parse the configuration file.
-
-One file is the whole configuration: the project's, the user's, or the shipped
-one. Nothing is layered.
-"""
+"""Configuration for the linter."""
 
 import logging
 import os

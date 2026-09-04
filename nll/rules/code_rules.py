@@ -1,4 +1,4 @@
-"""The rules the library checks itself."""
+"""Define nll's built-in code rules."""
 
 import re
 from typing import ClassVar

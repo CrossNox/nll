@@ -1,6 +1,10 @@
 """Rules, the rule book, and the code rules the library owns."""
 
-from nll.rules import code_rules  # noqa: F401  fills CodeRule.registry
+from nll.rules import (  # noqa: F401  fills CodeRule.registry
+    cliche_rules,
+    code_rules,
+    wikipedia_rules,
+)
 from nll.rules.rules import (
     CodeRule,
     ModelRule,

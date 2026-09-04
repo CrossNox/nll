@@ -1,7 +1,7 @@
 # nll
 `nll` is a text linter aimed to catch LLM tells and reduce the complexity of the text produced by them, so that the cognitive load on the reader is reduced and ideas are clearer.
 
-Some built-in rules are checked in code, others (most) are judged by an LLM. Yes, full circle, but kinda works? The goal is to allow for python plugins to be added to check in code if you want to roll your own code rules in a future release. Meanwhile, you can set your own LLM rules in your config file.
+Some built-in rules are checked in code, others (most) are judged by an LLM. You can also install `nll` plugins to provide your own set of rules.
 
 ## Install
 
@@ -106,6 +106,90 @@ n-files = 3
 
 A description can name the rule's options in braces. Write an option name with underscores, so `max-sentences` becomes `{max_sentences}` and `"More than {max_sentences} sentences."` renders with the configured value. Options work on Python and model rules. nll renders their values before sending model rules to the judge.
 
+#### Installing rules plugins
+
+Install them alongside `nll`:
+
+```sh
+uv tool install nll --with nll-acme-rules
+```
+
+Then enable their `nll.plugins` entry-point names.
+
+```toml
+plugins = ["acme-rules"]
+extend-select = ["ACM"]
+```
+
+The package contributes default sections under `[rules]`. Your configuration can select, ignore, and override those rules in the same way as built-in rules.
+
+`nll plugins` lists the rule packages enabled by the active configuration.
+
+To author a package, declare an entry point that names an `nll.plugins.Plugin` subclass:
+
+```toml
+[project.entry-points."nll.plugins"]
+acme-rules = "nll_acme_rules:AcmePlugin"
+```
+
+```python
+from typing import ClassVar
+
+from nll.document import Document
+from nll.plugins import Plugin
+from nll.rules import CodeRule
+from nll.rules.pattern_rules import TextPatternRule
+from nll.violations import Violation, Violations
+
+
+class Acme001(TextPatternRule, identifier="ACM001"):
+    """Flag obviously.
+
+    Example: "This is obviously correct."
+    """
+
+    pattern = r"\bobviously\b"
+
+
+class Acme002(CodeRule, identifier="ACM002"):
+    """Flag lines longer than 80 characters.
+
+    Example: "This line has more than eighty characters and should be shortened before it is committed."
+    """
+
+    def __call__(self, document: Document) -> Violations:
+        violations = []
+
+        for line_number, line in enumerate(document.lines, start=1):
+            if len(line) > 80:
+                violations.append(
+                    Violation(
+                        rule=self,
+                        path=document.path,
+                        line=line_number,
+                        offset=81,
+                        quote=line,
+                    )
+                )
+
+        return Violations(violations)
+
+
+class AcmePlugin(Plugin):
+    """Define Acme's writing rules."""
+
+    name = "acme-rules"
+    rules: ClassVar = {
+        "ACM": {
+            "description": "Acme writing rules",
+            "001": "Avoid obviously.",
+            "002": "Keep lines at 80 characters or fewer.",
+        }
+    }
+```
+
+The class's `name` must match the entry point name. `Acme001` registers itself when the package imports it. Each code rule needs a definition in `rules`.
+
 ### Check configuration
 `nll rules` prints every rule with its resolved on/off state and whether Python or the model checks it.
 
@@ -134,6 +218,44 @@ A description can name the rule's options in braces. Write an option name with u
 | CHR000 | off | Any non-ASCII character not covered by another CHR rule. |
 | LEN001 | off | The text has more than 3 sentences. |
 | LEN002 | on | Not concise. The text includes material the reader did not ask for: justification, background, alternatives or caveats. |
+| CLH001 | on | No X, no Y chains. |
+| CLH002 | on | That's the whole point, game, or thing. |
+| CLH003 | on | Did not X, did not Y chains. |
+| CLH004 | on | Don't VERB it, VERB it. |
+| CLH005 | on | Sit with that. |
+| CLH006 | on | You already know. |
+| CLH007 | on | Is the entire point, game, or business model. |
+| CLH008 | on | The entire point, game, or business model is. |
+| CLH009 | on | Is real and or not. |
+| CLH010 | on | The punchline is. |
+| CLH011 | on | Worth naming. |
+| CLH012 | on | That's not nothing. |
+| CLH013 | on | Is the whole point, trick, pitch, or idea. |
+| CLH014 | on | Echoing sentence runs. |
+| CLH015 | on | Performative honesty. |
+| CLH016 | on | That's the part. |
+| CLH017 | on | The only X I trust. |
+| CLH018 | on | Don't take my word for it. |
+| CLH019 | on | Turns out. |
+| CLH020 | on | Fits in your head. |
+| CLH021 | on | Stacked rhetorical questions. |
+| CLH022 | on | Repeated sentence openers. |
+| CLH023 | on | Colon into a triple. |
+| CLH024 | on | Here's the twist. |
+| CLH025 | on | X is dead. |
+| CLH026 | on | That's why X mattered. |
+| CLH027 | on | Stranded auxiliary contrast. |
+| WIK001 | on | AI vocabulary words. |
+| WIK002 | on | Not just X, but Y. |
+| WIK003 | on | It's important to note. |
+| WIK004 | on | Stands as a testament. |
+| WIK005 | on | Plays a crucial role. |
+| WIK006 | on | Ever-evolving landscape. |
+| WIK007 | on | Experts argue. |
+| WIK008 | on | Despite these challenges. |
+| WIK009 | on | Participle sentence tails. |
+| WIK010 | on | Promotional boilerplate. |
+| WIK011 | on | Chatbot leftovers. |
 
 ## Develop
 
@@ -145,3 +267,9 @@ uv run ruff check
 uv run ruff format
 uv tool install --editable .
 ```
+
+## Acknowledgments
+
+The CLH and WIK rules are adapted from [Simon Willison's LLM cliche highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html).
+
+For a broader collection of deterministic prose checks, see [Proselint](https://github.com/amperser/proselint).
