@@ -133,7 +133,39 @@ acme-rules = "nll_acme_rules:AcmePlugin"
 ```
 
 ```python
+import re
+
+from nll.document import Document
 from nll.plugins import Plugin
+from nll.rules import CodeRule
+from nll.violations import Violation, Violations
+
+
+class Acme001(CodeRule, identifier="ACM001"):
+    """Flag obviously.
+
+    Example: "This is obviously correct."
+    """
+
+    pattern = re.compile(r"\bobviously\b", re.IGNORECASE)
+
+    def __call__(self, document: Document) -> Violations:
+        violations = []
+
+        for match in self.pattern.finditer(document.prose):
+            line = document.prose.count("\n", 0, match.start()) + 1
+            line_start = document.prose.rfind("\n", 0, match.start()) + 1
+            violations.append(
+                Violation(
+                    rule=self,
+                    path=document.path,
+                    line=line,
+                    offset=match.start() - line_start + 1,
+                    quote=match.group(0),
+                )
+            )
+
+        return Violations(violations)
 
 
 class AcmePlugin(Plugin):
@@ -143,12 +175,12 @@ class AcmePlugin(Plugin):
     rules = {
         "ACM": {
             "description": "Acme writing rules",
-            "001": "Avoid Acme wording.",
+            "001": "Avoid obviously.",
         }
     }
 ```
 
-The class's `name` must match the entry point name. Code rule subclasses register themselves when the package imports them. Each code rule needs a definition in `rules`.
+The class's `name` must match the entry point name. `Acme001` registers itself when the package imports it. Each code rule needs a definition in `rules`.
 
 ### Check configuration
 `nll rules` prints every rule with its resolved on/off state and whether Python or the model checks it.
