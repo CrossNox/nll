@@ -1,6 +1,6 @@
 """Define writing-pattern rules adapted from Wikipedia's AI-writing guidance."""
 
-from nll.rules.pattern_rules import TextPatternRule
+from linnl.rules.pattern_rules import TextPatternRule
 
 
 class Wikipedia001(TextPatternRule, identifier="WIK001"):

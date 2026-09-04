@@ -16,13 +16,13 @@ from pydantic import (
     ValidationError,
 )
 
-from nll.agents import DEFAULT_AGENT_MODELS, Agent
-from nll.config import SHIPPED_CONFIG_FILE, read_config_file
-from nll.document import Document
-from nll.judge import ClaudeModelJudge, CodexModelJudge, ModelJudge
-from nll.plugins import load_plugins
-from nll.rules import RuleBook, RulesDefinitions
-from nll.violations import Violations
+from linnl.agents import DEFAULT_AGENT_MODELS, Agent
+from linnl.config import SHIPPED_CONFIG_FILE, read_config_file
+from linnl.document import Document
+from linnl.judge import ClaudeModelJudge, CodexModelJudge, ModelJudge
+from linnl.plugins import load_plugins
+from linnl.rules import RuleBook, RulesDefinitions
+from linnl.violations import Violations
 
 logger = logging.getLogger(__name__)
 

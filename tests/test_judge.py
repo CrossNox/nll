@@ -7,10 +7,10 @@ from typing import Any
 import pytest
 from claude_agent_sdk import ResultMessage
 
-from nll.config import SHIPPED_CONFIG_FILE
-from nll.document import Document
-from nll.judge import ClaudeModelJudge, CodexModelJudge, ModelJudge
-from nll.linter import Linter
+from linnl.config import SHIPPED_CONFIG_FILE
+from linnl.document import Document
+from linnl.judge import ClaudeModelJudge, CodexModelJudge, ModelJudge
+from linnl.linter import Linter
 
 
 def get_model_judge(select: list[str]) -> ModelJudge:
@@ -80,7 +80,7 @@ def test_claude_judge_fails_when_the_session_has_no_result(
         if False:
             yield prompt
 
-    monkeypatch.setattr("nll.judge.query", silent_query)
+    monkeypatch.setattr("linnl.judge.query", silent_query)
 
     with pytest.raises(RuntimeError, match="ended without a result message"):
         asyncio.run(
@@ -100,7 +100,7 @@ def test_claude_judge_fails_on_an_error_result(monkeypatch: pytest.MonkeyPatch) 
             errors=["service failed"],
         )
 
-    monkeypatch.setattr("nll.judge.query", failed_query)
+    monkeypatch.setattr("linnl.judge.query", failed_query)
 
     with pytest.raises(RuntimeError, match="Claude run failed"):
         asyncio.run(
@@ -122,7 +122,7 @@ def test_claude_judge_fails_on_invalid_structured_output(
             structured_output={"violations": [{"identifier": "CHR004", "quote": "x"}]},
         )
 
-    monkeypatch.setattr("nll.judge.query", invalid_query)
+    monkeypatch.setattr("linnl.judge.query", invalid_query)
 
     with pytest.raises(RuntimeError, match="invalid structured output"):
         asyncio.run(
@@ -158,7 +158,7 @@ def test_codex_judge_sends_read_only_request_and_parses_response(
             return FakeThread()
 
     linter = Linter.from_config(SHIPPED_CONFIG_FILE, select=["SLO001"])
-    monkeypatch.setattr("nll.judge.AsyncCodex", FakeCodex)
+    monkeypatch.setattr("linnl.judge.AsyncCodex", FakeCodex)
     judge = CodexModelJudge(linter.rules.model_rules, linter.config.model)
 
     violations = asyncio.run(

@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from nll.agents import Agent
-from nll.config import SHIPPED_CONFIG_FILE
-from nll.document import Document
-from nll.linter import Linter, apply_settings_overrides, merge_settings
+from linnl.agents import Agent
+from linnl.config import SHIPPED_CONFIG_FILE
+from linnl.document import Document
+from linnl.linter import Linter, apply_settings_overrides, merge_settings
 
 
 def test_from_config_uses_shipped_defaults(default_linter: Linter) -> None:
@@ -29,7 +29,7 @@ def test_from_config_uses_shipped_defaults(default_linter: Linter) -> None:
 
 
 def test_from_config_merges_a_file_over_shipped_settings(tmp_path: Path) -> None:
-    path = tmp_path / "nll.toml"
+    path = tmp_path / "linnl.toml"
     path.write_text(
         'ignore = ["CHR004"]\nmodel = "custom"\nignore-code-blocks = false\n',
         encoding="utf-8",
@@ -196,12 +196,12 @@ def test_lint_paths_limits_concurrent_model_calls(
         running -= 1
         return []
 
-    monkeypatch.setattr("nll.judge.ClaudeModelJudge.judge", slow_judge)
-    (tmp_path / "nll.toml").write_text("max-concurrency = 2\n", encoding="utf-8")
+    monkeypatch.setattr("linnl.judge.ClaudeModelJudge.judge", slow_judge)
+    (tmp_path / "linnl.toml").write_text("max-concurrency = 2\n", encoding="utf-8")
     for index in range(6):
         (tmp_path / f"doc{index}.md").write_text("text", encoding="utf-8")
 
-    linter = Linter.from_config(tmp_path / "nll.toml", select=["SLO001"])
+    linter = Linter.from_config(tmp_path / "linnl.toml", select=["SLO001"])
     linter.lint_paths([tmp_path])
 
     assert peak == 2
@@ -221,7 +221,7 @@ def test_lint_paths_limits_concurrent_model_calls(
 def test_invalid_configuration_raises_a_named_error(
     tmp_path: Path, content: str, message: str
 ) -> None:
-    path = tmp_path / "nll.toml"
+    path = tmp_path / "linnl.toml"
     path.write_text(content, encoding="utf-8")
 
     with pytest.raises(ValueError, match=message):
@@ -229,7 +229,7 @@ def test_invalid_configuration_raises_a_named_error(
 
 
 def test_ignore_and_select_conflicts_are_rejected(tmp_path: Path) -> None:
-    path = tmp_path / "nll.toml"
+    path = tmp_path / "linnl.toml"
     path.write_text('select = ["CHR004"]\nignore = ["CHR004"]\n', encoding="utf-8")
 
     with pytest.raises(ValueError, match="both in the ignore list"):

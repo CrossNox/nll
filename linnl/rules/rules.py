@@ -7,9 +7,9 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from nll.document import Document
-from nll.logconfig import get_logger
-from nll.violations import Violation, Violations
+from linnl.document import Document
+from linnl.logconfig import get_logger
+from linnl.violations import Violation, Violations
 
 logger = get_logger(__name__)
 

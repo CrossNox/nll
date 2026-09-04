@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from nll.rules import Rule
+    from linnl.rules import Rule
 
 QUOTE_WIDTH = 100
 

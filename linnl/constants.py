@@ -1,4 +1,4 @@
-"""nll constants."""
+"""linnl constants."""
 
 from typing import Final
 

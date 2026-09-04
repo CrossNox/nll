@@ -2,13 +2,13 @@
 
 import re
 
-from nll.document import Document
-from nll.rules.pattern_rules import (
+from linnl.document import Document
+from linnl.rules.pattern_rules import (
     ASCII_IGNORE_CASE,
     TextPatternRule,
 )
-from nll.rules.rules import CodeRule
-from nll.violations import Violation, Violations
+from linnl.rules.rules import CodeRule
+from linnl.violations import Violation, Violations
 
 TextMatch = tuple[int, int]
 

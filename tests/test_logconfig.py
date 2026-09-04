@@ -1,7 +1,7 @@
 import json
 import logging
 
-from nll.logconfig import build_handler, choose_level_for_verbosity
+from linnl.logconfig import build_handler, choose_level_for_verbosity
 
 
 def test_choose_level_for_verbosity() -> None:
@@ -15,7 +15,7 @@ def test_build_handler_uses_json_when_structured() -> None:
     handler = build_handler(structured=True, pretty=False, level=logging.INFO)
 
     record = logging.LogRecord(
-        name="nll.test",
+        name="linnl.test",
         level=logging.INFO,
         pathname=__file__,
         lineno=1,

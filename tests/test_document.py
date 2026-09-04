@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from nll.document import Document
+from linnl.document import Document
 
 
 def test_document_reads_utf8_text_from_a_path(tmp_path: Path) -> None:

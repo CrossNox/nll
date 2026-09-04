@@ -1,5 +1,5 @@
 [project]
-name = "nll"
+name = "linnl"
 version = "0.1.0"
 description = "Lint prose against a configurable set of style rules, judged by a LLM."
 readme = "README.md"
@@ -30,11 +30,11 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/CrossNox/nll"
-Issues = "https://github.com/CrossNox/nll/issues"
+Repository = "https://github.com/CrossNox/linnl"
+Issues = "https://github.com/CrossNox/linnl/issues"
 
 [project.scripts]
-nll = "nll.cli:app"
+linnl = "linnl.cli:app"
 
 [dependency-groups]
 dev = ["pycln>=2.6.0", "pytest>=8", "ruff>=0.15", "ty>=0.0.77"]
@@ -69,7 +69,7 @@ convention = "pep257"
 
 [tool.ruff.lint.per-file-ignores]
 # the linter's own subject matter: the CHR rules and their fixtures are these characters
-"nll/checks.py" = ["RUF001"]
+"linnl/checks.py" = ["RUF001"]
 "tests/*.py" = ["RUF001"]
 
 [build-system]
@@ -77,5 +77,5 @@ requires = ["uv_build>=0.11,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = "nll"
+module-name = "linnl"
 module-root = ""

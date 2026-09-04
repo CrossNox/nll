@@ -11,9 +11,9 @@ from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 from openai_codex import AsyncCodex, Sandbox
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from nll.document import Document
-from nll.rules import ModelRule
-from nll.violations import Violation, Violations
+from linnl.document import Document
+from linnl.rules import ModelRule
+from linnl.violations import Violation, Violations
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ def _prepare_env() -> jinja2.Environment:
         autoescape=jinja2.select_autoescape(
             disabled_extensions=(".md.j2"), default_for_string=False, default=False
         ),
-        loader=jinja2.PackageLoader("nll", package_path="resources/templates/"),
+        loader=jinja2.PackageLoader("linnl", package_path="resources/templates/"),
     )
     return env
 

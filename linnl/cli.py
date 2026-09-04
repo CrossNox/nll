@@ -6,11 +6,11 @@ from typing import Annotated
 
 import typer
 
-from nll.agents import Agent
-from nll.agents import install_hook as install_agent_hook
-from nll.config import SHIPPED_CONFIG_FILE, discover_config_file
-from nll.linter import Linter
-from nll.logconfig import (
+from linnl.agents import Agent
+from linnl.agents import install_hook as install_agent_hook
+from linnl.config import SHIPPED_CONFIG_FILE, discover_config_file
+from linnl.linter import Linter
+from linnl.logconfig import (
     DEFAULT_PRETTY,
     DEFAULT_STRUCTURED,
     DEFAULT_VERBOSE,
@@ -98,7 +98,7 @@ def main(
         help="Output structured (JSON) logs.",
     ),
 ) -> None:
-    """nll, a prose linter."""
+    """linnl, a prose linter."""
     config_logging(verbose=verbose, pretty=pretty, structured=structured)
 
 
@@ -182,7 +182,7 @@ def list_rules(
 
 @app.command(name="config")
 def print_shipped_config() -> None:
-    """Print the shipped config, to copy and edit: nll config > nll.toml."""
+    """Print the shipped config, to copy and edit: linnl config > linnl.toml."""
     print(SHIPPED_CONFIG_FILE.read_text(encoding="utf-8"), end="")
 
 
@@ -195,7 +195,7 @@ def list_plugins(config_file: ConfigOption = None) -> None:
     linter = Linter.from_config(config_file)
 
     if len(linter.config.plugins) == 0:
-        print("No nll plugins enabled.")
+        print("No linnl plugins enabled.")
         return
 
     print(linter.config.plugins)
@@ -210,6 +210,6 @@ def install_hook(
         help="Install in the current project or in your home directory.",
     ),
 ) -> None:
-    """Install nll as hook for your coding agent."""
+    """Install linnl as hook for your coding agent."""
     command_path = install_agent_hook(agent, local=local)
-    typer.echo(f"Installed nll command at {command_path}")
+    typer.echo(f"Installed linnl command at {command_path}")

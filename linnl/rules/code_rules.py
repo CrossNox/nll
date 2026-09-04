@@ -1,11 +1,11 @@
-"""Define nll's built-in code rules."""
+"""Define linnl's built-in code rules."""
 
 import re
 from typing import ClassVar
 
-from nll.document import Document
-from nll.rules.rules import CodeRule
-from nll.violations import Violation, Violations
+from linnl.document import Document
+from linnl.rules.rules import CodeRule
+from linnl.violations import Violation, Violations
 
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 HAS_LETTER = re.compile(r"[A-Za-z]")

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from nll.linter import Linter
+from linnl.linter import Linter
 
 
 def test_linter_collects_named_files_and_matching_directory_files(

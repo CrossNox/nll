@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from nll.document import Document
-from nll.rules import CodeRule, RuleBook
+from linnl.document import Document
+from linnl.rules import CodeRule, RuleBook
 
 
 def find_code_rule(rulebook: RuleBook, identifier: str) -> CodeRule:

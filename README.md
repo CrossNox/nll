@@ -1,12 +1,12 @@
-# nll
-`nll` is a text linter aimed to catch LLM tells and reduce the complexity of the text produced by them, so that the cognitive load on the reader is reduced and ideas are clearer.
+# linnl
+`linnl` is a text linter aimed to catch LLM tells and reduce the complexity of the text produced by them, so that the cognitive load on the reader is reduced and ideas are clearer.
 
-Some built-in rules are checked in code, others (most) are judged by an LLM. You can also install `nll` plugins to provide your own set of rules.
+Some built-in rules are checked in code, others (most) are judged by an LLM. You can also install `linnl` plugins to provide your own set of rules.
 
 ## Install
 
 ```sh
-uv tool install nll
+uv tool install linnl
 ```
 
 ### Claude as a judge
@@ -18,9 +18,9 @@ Codex reuses the local Codex session. You can also set `OPENAI_API_KEY`.
 ## Use
 
 ```sh
-nll lint notes.md
-nll lint docs/
-echo "text" | nll lint
+linnl lint notes.md
+linnl lint docs/
+echo "text" | linnl lint
 ```
 
 Example output:
@@ -44,21 +44,21 @@ Found 2 violations across 1 file.
 
 Check
 ```sh
-nll lint --help
+linnl lint --help
 ```
 
 To see available quick configuration options.
 
 ### File configuration
 The priority is:
-- The closest `pyproject.toml` with a tool.nll section
-- A `nll.toml` file next to the closest pyproject.toml
-- `~/.config/nll/config.toml`
+- The closest `pyproject.toml` with a tool.linnl section
+- A `linnl.toml` file next to the closest pyproject.toml
+- `~/.config/linnl/config.toml`
 - The config file shipped with the tool
 
-You can easily create a `nll.toml` with:
+You can easily create a `linnl.toml` with:
 ```sh
-nll config > nll.toml
+linnl config > linnl.toml
 ```
 
 #### Adding your own rules
@@ -74,7 +74,7 @@ description = "Wording that must not leak infrastructure details"
 abc = "Shows a credential or token in an example"
 ```
 
-That defines `SEC001` and `SECabc`, judged by the model. `nll` shows the group description to the model above its rules, so make it say what the group is for.
+That defines `SEC001` and `SECabc`, judged by the model. `linnl` shows the group description to the model above its rules, so make it say what the group is for.
 
 The reserved `RGX` group defines regular expression rules. Every value under
 `[rules.RGX]` is compiled as a Python regular expression and is enabled by
@@ -104,17 +104,17 @@ description = "Do now show more {n_files} files in the current directory"
 n-files = 3
 ```
 
-A description can name the rule's options in braces. Write an option name with underscores, so `max-sentences` becomes `{max_sentences}` and `"More than {max_sentences} sentences."` renders with the configured value. Options work on Python and model rules. nll renders their values before sending model rules to the judge.
+A description can name the rule's options in braces. Write an option name with underscores, so `max-sentences` becomes `{max_sentences}` and `"More than {max_sentences} sentences."` renders with the configured value. Options work on Python and model rules. linnl renders their values before sending model rules to the judge.
 
 #### Installing rules plugins
 
-Install them alongside `nll`:
+Install them alongside `linnl`:
 
 ```sh
-uv tool install nll --with nll-acme-rules
+uv tool install linnl --with linnl-acme-rules
 ```
 
-Then enable their `nll.plugins` entry-point names.
+Then enable their `linnl.plugins` entry-point names.
 
 ```toml
 plugins = ["acme-rules"]
@@ -123,23 +123,23 @@ extend-select = ["ACM"]
 
 The package contributes default sections under `[rules]`. Your configuration can select, ignore, and override those rules in the same way as built-in rules.
 
-`nll plugins` lists the rule packages enabled by the active configuration.
+`linnl plugins` lists the rule packages enabled by the active configuration.
 
-To author a package, declare an entry point that names an `nll.plugins.Plugin` subclass:
+To author a package, declare an entry point that names a `linnl.plugins.Plugin` subclass:
 
 ```toml
-[project.entry-points."nll.plugins"]
-acme-rules = "nll_acme_rules:AcmePlugin"
+[project.entry-points."linnl.plugins"]
+acme-rules = "linnl_acme_rules:AcmePlugin"
 ```
 
 ```python
 from typing import ClassVar
 
-from nll.document import Document
-from nll.plugins import Plugin
-from nll.rules import CodeRule
-from nll.rules.pattern_rules import TextPatternRule
-from nll.violations import Violation, Violations
+from linnl.document import Document
+from linnl.plugins import Plugin
+from linnl.rules import CodeRule
+from linnl.rules.pattern_rules import TextPatternRule
+from linnl.violations import Violation, Violations
 
 
 class Acme001(TextPatternRule, identifier="ACM001"):
@@ -191,7 +191,7 @@ class AcmePlugin(Plugin):
 The class's `name` must match the entry point name. `Acme001` registers itself when the package imports it. Each code rule needs a definition in `rules`.
 
 ### Check configuration
-`nll rules` prints every rule with its resolved on/off state and whether Python or the model checks it.
+`linnl rules` prints every rule with its resolved on/off state and whether Python or the model checks it.
 
 ## Built-in rules
 
@@ -262,7 +262,7 @@ The class's `name` must match the entry point name. `Acme001` registers itself w
 ```sh
 uv sync --group dev
 uv run pytest
-uv run ty check nll
+uv run ty check linnl
 uv run ruff check
 uv run ruff format
 uv tool install --editable .

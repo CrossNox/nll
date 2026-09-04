@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from nll.rules import Rule
-from nll.violations import Violation, Violations
+from linnl.rules import Rule
+from linnl.violations import Violation, Violations
 
 
 def make_violation(

@@ -3,9 +3,9 @@ from typing import Any
 
 import pytest
 
-from nll.config import SHIPPED_CONFIG_FILE
-from nll.document import Document
-from nll.rules import CodeRule, ModelRule, RegexRule, RuleBook, RulesDefinitions
+from linnl.config import SHIPPED_CONFIG_FILE
+from linnl.document import Document
+from linnl.rules import CodeRule, ModelRule, RegexRule, RuleBook, RulesDefinitions
 
 
 def get_rule(rulebook: RuleBook, identifier: str) -> Any:

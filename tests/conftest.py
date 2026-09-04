@@ -5,9 +5,9 @@ from typing import Any
 import pytest
 from claude_agent_sdk import ResultMessage
 
-from nll.config import SHIPPED_CONFIG_FILE
-from nll.linter import Linter
-from nll.rules import RuleBook
+from linnl.config import SHIPPED_CONFIG_FILE
+from linnl.linter import Linter
+from linnl.rules import RuleBook
 
 FakeModel = Callable[[dict[str, Any]], list[tuple[str, Any]]]
 
@@ -51,7 +51,7 @@ def fake_model(monkeypatch: pytest.MonkeyPatch) -> FakeModel:
                 structured_output=structured_output,
             )
 
-        monkeypatch.setattr("nll.judge.query", fake_query)
+        monkeypatch.setattr("linnl.judge.query", fake_query)
         return calls
 
     return install

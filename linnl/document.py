@@ -4,7 +4,7 @@ from docutils import nodes
 from docutils.core import publish_doctree
 from markdown_it import MarkdownIt
 
-from nll.constants import DEFAULT_IGNORE_CODE_BLOCKS
+from linnl.constants import DEFAULT_IGNORE_CODE_BLOCKS
 
 MARKDOWN_PARSER = MarkdownIt("commonmark")
 

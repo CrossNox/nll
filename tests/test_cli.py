@@ -5,8 +5,8 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from nll.cli import app, lint
-from nll.plugins import Plugin
+from linnl.cli import app, lint
+from linnl.plugins import Plugin
 
 runner = CliRunner()
 
@@ -59,7 +59,7 @@ def test_lint_ignore_code_blocks_cli_flags_override_the_config(
     no_user_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(no_user_config)
-    (no_user_config / "nll.toml").write_text(
+    (no_user_config / "linnl.toml").write_text(
         "ignore-code-blocks = false\n", encoding="utf-8"
     )
     (no_user_config / "notes.md").write_text(
@@ -103,7 +103,7 @@ def test_lint_rejects_terminal_stdin(
         def read(self) -> str:
             return ""
 
-    monkeypatch.setattr("nll.cli.sys.stdin", Terminal())
+    monkeypatch.setattr("linnl.cli.sys.stdin", Terminal())
 
     with pytest.raises(typer.Exit) as raised:
         lint(select=["CHR004"], paths=None)
@@ -155,7 +155,7 @@ def test_plugins_lists_enabled_packages(
     no_user_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(no_user_config)
-    (no_user_config / "nll.toml").write_text(
+    (no_user_config / "linnl.toml").write_text(
         'plugins = ["acme-rules"]\n', encoding="utf-8"
     )
 
@@ -171,7 +171,9 @@ def test_plugins_lists_enabled_packages(
             "ACM": {"description": "Acme", "001": "An Acme rule."}
         }
 
-    monkeypatch.setattr("nll.plugins.entry_points", lambda *, group: [FakeEntryPoint()])
+    monkeypatch.setattr(
+        "linnl.plugins.entry_points", lambda *, group: [FakeEntryPoint()]
+    )
 
     result = runner.invoke(app, ["plugins"])
 
@@ -183,10 +185,10 @@ def test_plugins_rejects_a_missing_enabled_package(
     no_user_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(no_user_config)
-    (no_user_config / "nll.toml").write_text(
+    (no_user_config / "linnl.toml").write_text(
         'plugins = ["missing-rules"]\n', encoding="utf-8"
     )
-    monkeypatch.setattr("nll.plugins.entry_points", lambda *, group: [])
+    monkeypatch.setattr("linnl.plugins.entry_points", lambda *, group: [])
 
     result = runner.invoke(app, ["plugins"])
 
@@ -198,7 +200,9 @@ def test_bad_config_fails_with_a_cli_error(
     no_user_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(no_user_config)
-    (no_user_config / "nll.toml").write_text("max-concurrency = 0\n", encoding="utf-8")
+    (no_user_config / "linnl.toml").write_text(
+        "max-concurrency = 0\n", encoding="utf-8"
+    )
 
     result = runner.invoke(app, ["rules"])
 
@@ -214,5 +218,5 @@ def test_install_hook_command_uses_the_selected_agent(
     result = runner.invoke(app, ["install-hook", "claude", "--local"])
 
     assert result.exit_code == 0
-    assert (no_user_config / ".claude" / "commands" / "nll.md").exists()
-    assert "Installed nll command" in result.stdout
+    assert (no_user_config / ".claude" / "commands" / "linnl.md").exists()
+    assert "Installed linnl command" in result.stdout

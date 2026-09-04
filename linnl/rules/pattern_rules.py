@@ -3,9 +3,9 @@
 import re
 from typing import ClassVar
 
-from nll.document import Document
-from nll.rules.rules import CodeRule
-from nll.violations import Violation, Violations
+from linnl.document import Document
+from linnl.rules.rules import CodeRule
+from linnl.violations import Violation, Violations
 
 ASCII_IGNORE_CASE = re.ASCII | re.IGNORECASE
 
