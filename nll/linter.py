@@ -4,19 +4,30 @@ import asyncio
 import logging
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PositiveInt,
+    StringConstraints,
+    TypeAdapter,
+    ValidationError,
+)
 
 from nll.agents import DEFAULT_AGENT_MODELS, Agent
 from nll.config import SHIPPED_CONFIG_FILE, read_config_file
 from nll.document import Document
 from nll.judge import ClaudeModelJudge, CodexModelJudge, ModelJudge
-from nll.plugins import Plugin, load_plugins
+from nll.plugins import load_plugins
 from nll.rules import RuleBook, RulesDefinitions
 from nll.violations import Violations
 
 logger = logging.getLogger(__name__)
+
+PluginName = Annotated[str, StringConstraints(min_length=1)]
+PLUGIN_NAMES = TypeAdapter(list[PluginName])
 
 
 def merge_settings(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:
@@ -65,7 +76,7 @@ def apply_settings_overrides(
 class LinterConfig(BaseModel):
     """Linter configuration"""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     select: list[str]
     extend_select: list[str] = Field(alias="extend-select")
@@ -77,7 +88,7 @@ class LinterConfig(BaseModel):
     max_concurrency: PositiveInt = Field(alias="max-concurrency")
     include_extensions: list[str] = Field(alias="include-extensions")
     ignore_code_blocks: bool = Field(alias="ignore-code-blocks")
-    plugins: tuple[Plugin, ...]
+    plugins: list[PluginName]
     rules: RulesDefinitions
 
     @classmethod
@@ -98,15 +109,16 @@ class LinterConfig(BaseModel):
         """Resolve settings from a config file."""
         project_settings = read_config_file(config_file)
         shipped_settings = read_config_file(SHIPPED_CONFIG_FILE)
+        try:
+            plugin_names = PLUGIN_NAMES.validate_python(
+                merge_settings(shipped_settings, project_settings)["plugins"],
+                strict=True,
+            )
+        except ValidationError as error:
+            raise ValueError(f"Configuration error: {error}") from error
+
+        plugins = load_plugins(plugin_names)
         settings = shipped_settings
-        plugin_names = merge_settings(settings, project_settings)["plugins"]
-
-        if not isinstance(plugin_names, list) or not all(
-            isinstance(name, str) and name != "" for name in plugin_names
-        ):
-            raise ValueError("Configuration error: plugins must be a list of names")
-
-        plugins = load_plugins(cast(list[str], plugin_names))
 
         for plugin in plugins:
             settings = merge_settings(settings, {"rules": plugin.rules})
@@ -129,7 +141,6 @@ class LinterConfig(BaseModel):
             settings["model"] = DEFAULT_AGENT_MODELS[settings["agent"]]
 
         try:
-            settings["plugins"] = plugins
             config = cls.model_validate(settings)
         except ValidationError as error:
             raise ValueError(f"Configuration error: {error}") from error

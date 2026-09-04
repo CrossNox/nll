@@ -16,9 +16,6 @@ class Plugin:
     name: ClassVar[str]
     rules: ClassVar[dict[str, dict[str, Any]]]
 
-    def __repr__(self) -> str:
-        return self.name
-
 
 def load_plugins(plugin_names: list[str]) -> tuple[Plugin, ...]:
     """Load the plugins named by a configuration file."""
