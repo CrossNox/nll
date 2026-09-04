@@ -133,37 +133,42 @@ acme-rules = "nll_acme_rules:AcmePlugin"
 ```
 
 ```python
-import re
-
 from nll.document import Document
 from nll.plugins import Plugin
 from nll.rules import CodeRule
+from nll.rules.pattern_rules import TextPatternRule
 from nll.violations import Violation, Violations
 
 
-class Acme001(CodeRule, identifier="ACM001"):
+class Acme001(TextPatternRule, identifier="ACM001"):
     """Flag obviously.
 
     Example: "This is obviously correct."
     """
 
-    pattern = re.compile(r"\bobviously\b", re.IGNORECASE)
+    pattern = r"\bobviously\b"
+
+
+class Acme002(CodeRule, identifier="ACM002"):
+    """Flag lines longer than 80 characters.
+
+    Example: "This line has more than eighty characters and should be shortened before it is committed."
+    """
 
     def __call__(self, document: Document) -> Violations:
         violations = []
 
-        for match in self.pattern.finditer(document.prose):
-            line = document.prose.count("\n", 0, match.start()) + 1
-            line_start = document.prose.rfind("\n", 0, match.start()) + 1
-            violations.append(
-                Violation(
-                    rule=self,
-                    path=document.path,
-                    line=line,
-                    offset=match.start() - line_start + 1,
-                    quote=match.group(0),
+        for line_number, line in enumerate(document.lines, start=1):
+            if len(line) > 80:
+                violations.append(
+                    Violation(
+                        rule=self,
+                        path=document.path,
+                        line=line_number,
+                        offset=81,
+                        quote=line,
+                    )
                 )
-            )
 
         return Violations(violations)
 
@@ -176,6 +181,7 @@ class AcmePlugin(Plugin):
         "ACM": {
             "description": "Acme writing rules",
             "001": "Avoid obviously.",
+            "002": "Keep lines at 80 characters or fewer.",
         }
     }
 ```
