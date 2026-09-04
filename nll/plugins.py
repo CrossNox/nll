@@ -1,8 +1,7 @@
 """Load rule plugins installed with Python packages."""
 
-from dataclasses import dataclass
 from importlib.metadata import entry_points
-from typing import Any
+from typing import Any, ClassVar
 
 from nll.logconfig import get_logger
 
@@ -11,21 +10,18 @@ logger = get_logger(__name__)
 PLUGIN_ENTRY_POINT_GROUP = "nll.plugins"
 
 
-@dataclass(frozen=True)
 class Plugin:
     """Define the rules a package contributes to nll."""
 
-    name: str
-    rules: dict[str, dict[str, Any]]
+    name: ClassVar[str]
+    rules: ClassVar[dict[str, dict[str, Any]]]
+
+    def __repr__(self) -> str:
+        return self.name
 
 
-def load_plugins(plugin_names: object) -> tuple[Plugin, ...]:
+def load_plugins(plugin_names: list[str]) -> tuple[Plugin, ...]:
     """Load the plugins named by a configuration file."""
-    if not isinstance(plugin_names, list) or not all(
-        isinstance(name, str) and name != "" for name in plugin_names
-    ):
-        raise ValueError("Configuration error: plugins must be a list of names")
-
     installed = {
         entry_point.name: entry_point
         for entry_point in entry_points(group=PLUGIN_ENTRY_POINT_GROUP)
@@ -34,14 +30,17 @@ def load_plugins(plugin_names: object) -> tuple[Plugin, ...]:
 
     for name in plugin_names:
         try:
-            factory = installed[name].load()
+            plugin_class = installed[name].load()
         except KeyError as error:
             raise ValueError(f"plugin {name} is enabled but not installed") from error
 
-        plugin = factory()
+        plugin = plugin_class()
 
         if not isinstance(plugin, Plugin):
-            raise ValueError(f"plugin {name} did not return an nll Plugin")
+            raise ValueError(f"plugin {name} does not define an nll Plugin")
+
+        if plugin.name != name:
+            raise ValueError(f"plugin {name} defines the name {plugin.name}")
 
         plugins.append(plugin)
         logger.info("Loaded plugin %s", plugin.name)

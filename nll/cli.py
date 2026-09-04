@@ -198,8 +198,7 @@ def list_plugins(config_file: ConfigOption = None) -> None:
         print("No nll plugins enabled.")
         return
 
-    for plugin in linter.config.plugins:
-        print(plugin.name)
+    print(linter.config.plugins)
 
 
 @app.command()

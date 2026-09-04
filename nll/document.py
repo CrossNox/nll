@@ -4,6 +4,8 @@ from docutils import nodes
 from docutils.core import publish_doctree
 from markdown_it import MarkdownIt
 
+from nll.constants import DEFAULT_IGNORE_CODE_BLOCKS
+
 MARKDOWN_PARSER = MarkdownIt("commonmark")
 
 
@@ -12,7 +14,7 @@ class Document:
         self,
         path: Path | None = None,
         prose: str | None = None,
-        ignore_code_blocks: bool = False,
+        ignore_code_blocks: bool = DEFAULT_IGNORE_CODE_BLOCKS,
     ):
         if prose is None:
             if path is None:
@@ -20,18 +22,24 @@ class Document:
 
             prose = path.read_text(encoding="utf-8")
 
-        self.prose = prose
+        self.ignore_code_blocks = ignore_code_blocks
+        self._prose = prose
         self.path = path
 
-        if ignore_code_blocks:
-            self.prose = self._omit_code_blocks()
+    @property
+    def prose(self) -> str:
+        if self.ignore_code_blocks:
+            return self._omit_code_blocks()
+        return self._prose
 
-        self.lines = self.prose.split("\n")
+    @property
+    def lines(self) -> list[str]:
+        return self.prose.split("\n")
 
     def _omit_code_blocks(self) -> str:
         """Omit code content while preserving source line positions."""
         if self.path is None:
-            return self.prose
+            return self._prose
 
         if self.path.suffix.lower() == ".md":
             omitted_ranges = self._find_markdown_code_block_ranges()
@@ -40,7 +48,7 @@ class Document:
         else:
             return self.prose
 
-        lines = self.prose.splitlines(keepends=True)
+        lines = self._prose.splitlines(keepends=True)
         omitted_lines = [False] * len(lines)
 
         for start_line, end_line in omitted_ranges:
@@ -48,7 +56,7 @@ class Document:
                 omitted_lines[line_index] = True
 
         return "".join(
-            self._blank_line(line) if omitted else line
+            self._extract_line_ending(line) if omitted else line
             for line, omitted in zip(lines, omitted_lines, strict=True)
         )
 
@@ -65,7 +73,7 @@ class Document:
     def _find_rst_code_block_ranges(self) -> list[tuple[int, int]]:
         """Find source ranges for reStructuredText literal blocks."""
         tree = publish_doctree(
-            self.prose,
+            self._prose,
             settings_overrides={
                 "file_insertion_enabled": False,
                 "halt_level": 6,
@@ -126,5 +134,5 @@ class Document:
         return expected_offset
 
     @staticmethod
-    def _blank_line(line: str) -> str:
+    def _extract_line_ending(line: str) -> str:
         return line[len(line.rstrip("\r\n")) :]

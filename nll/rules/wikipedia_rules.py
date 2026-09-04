@@ -4,6 +4,11 @@ from nll.rules.pattern_rules import TextPatternRule
 
 
 class Wikipedia001(TextPatternRule, identifier="WIK001"):
+    """Flag vocabulary associated with AI-written prose.
+
+    Example: "The intricate tapestry is vibrant."
+    """
+
     pattern = (
         r"\b(?:delv(?:e|es|ed|ing)|tapestr(?:y|ies)|meticulous(?:ly)?|pivotal|"
         r"intricate(?:ly)?|intricacies|interplay|underscor(?:e|es|ed|ing)|"
@@ -13,6 +18,11 @@ class Wikipedia001(TextPatternRule, identifier="WIK001"):
 
 
 class Wikipedia002(TextPatternRule, identifier="WIK002"):
+    """Flag not just X, but Y phrasing.
+
+    Example: "It is not just fast, but reliable."
+    """
+
     pattern = (
         r"\bnot\s+(?:just|only|merely|simply)\s+[^.!?\n;]*?\bbut(?:\s+also)?\b|"
         r"\b(?:it|this|that)(?:['\u2019]s|\s+(?:is|was))\s+not\s+"
@@ -22,6 +32,11 @@ class Wikipedia002(TextPatternRule, identifier="WIK002"):
 
 
 class Wikipedia003(TextPatternRule, identifier="WIK003"):
+    """Flag it's important to note phrasing.
+
+    Example: "It is important to note that this is optional."
+    """
+
     pattern = (
         r"\bit(?:['\u2019]s|\s+(?:is|was))\s+(?:also\s+)?"
         r"(?:important|worth|crucial|essential|vital)\s+(?:to\s+(?:note|remember|"
@@ -32,6 +47,11 @@ class Wikipedia003(TextPatternRule, identifier="WIK003"):
 
 
 class Wikipedia004(TextPatternRule, identifier="WIK004"):
+    """Flag stands as a testament phrasing.
+
+    Example: "The archive stands as a testament to care."
+    """
+
     pattern = (
         r"\b(?:stand|stands|stood|serve|serves|served|standing|serving)\s+as\s+"
         r"(?:a|an)\s+(?:\w+\s+)?(?:testament|reminder)\b|"
@@ -40,6 +60,11 @@ class Wikipedia004(TextPatternRule, identifier="WIK004"):
 
 
 class Wikipedia005(TextPatternRule, identifier="WIK005"):
+    """Flag plays a crucial role phrasing.
+
+    Example: "Caching plays a crucial role."
+    """
+
     pattern = (
         r"\bplay(?:s|ed|ing)?\s+(?:a|an)\s+(?:\w+\s+)?"
         r"(?:crucial|pivotal|vital|key|significant|central|critical|important)\s+role\b"
@@ -47,6 +72,11 @@ class Wikipedia005(TextPatternRule, identifier="WIK005"):
 
 
 class Wikipedia006(TextPatternRule, identifier="WIK006"):
+    """Flag ever-evolving landscape phrasing.
+
+    Example: "This is an ever-evolving landscape."
+    """
+
     pattern = (
         r"\b(?:ever-)?(?:evolving|changing|shifting)\s+landscape\b|"
         r"\bin\s+today['\u2019]s\s+(?:fast-paced|ever-changing|ever-evolving|"
@@ -55,6 +85,11 @@ class Wikipedia006(TextPatternRule, identifier="WIK006"):
 
 
 class Wikipedia007(TextPatternRule, identifier="WIK007"):
+    """Flag vague attribution to experts.
+
+    Example: "Experts argue that this is safer."
+    """
+
     pattern = (
         r"\b(?:many|some|several|most|numerous)?\s*(?:experts|critics|observers|"
         r"scholars|analysts|commentators)\s+(?:have\s+|often\s+|widely\s+)?"
@@ -66,6 +101,11 @@ class Wikipedia007(TextPatternRule, identifier="WIK007"):
 
 
 class Wikipedia008(TextPatternRule, identifier="WIK008"):
+    """Flag despite these challenges phrasing.
+
+    Example: "Despite these challenges, progress continues."
+    """
+
     pattern = (
         r"\bdespite\s+(?:these|those|such|its|their|the|numerous|significant|"
         r"ongoing)\s+(?:\w+\s+)?challenges\b|\bfac(?:e|es|ed|ing)\s+(?:several|"
@@ -76,6 +116,11 @@ class Wikipedia008(TextPatternRule, identifier="WIK008"):
 
 
 class Wikipedia009(TextPatternRule, identifier="WIK009"):
+    """Flag participle sentence tails.
+
+    Example: "The change landed, highlighting its value."
+    """
+
     pattern = (
         r",\s+(?:highlighting|underscoring|emphasizing|showcasing|reflecting|"
         r"demonstrating|illustrating|signaling|solidifying|cementing|reinforcing|"
@@ -85,6 +130,11 @@ class Wikipedia009(TextPatternRule, identifier="WIK009"):
 
 
 class Wikipedia010(TextPatternRule, identifier="WIK010"):
+    """Flag promotional boilerplate.
+
+    Example: "It is a hidden gem in the heart of the city."
+    """
+
     pattern = (
         r"\bnestled\s+(?:in|on|among|between|along|at)\b|\bin\s+the\s+heart\s+of\b|"
         r"\brich\s+(?:cultural\s+|historical\s+)?(?:heritage|history|tapestry)\b|"
@@ -95,6 +145,11 @@ class Wikipedia010(TextPatternRule, identifier="WIK010"):
 
 
 class Wikipedia011(TextPatternRule, identifier="WIK011"):
+    """Flag chatbot-generated leftovers.
+
+    Example: "As an AI language model, I cannot browse the internet."
+    """
+
     pattern = (
         r"\bas\s+an\s+ai(?:\s+language)?\s+model\b|\bas\s+of\s+my\s+last\s+"
         r"(?:update|training)\b|\bknowledge\s+cutoff\b|\bI\s+(?:cannot|can['\u2019]t|"

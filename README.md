@@ -1,7 +1,7 @@
 # nll
 `nll` is a text linter aimed to catch LLM tells and reduce the complexity of the text produced by them, so that the cognitive load on the reader is reduced and ideas are clearer.
 
-Some built-in rules are checked in code, others (most) are judged by an LLM. You can also install Python rule packages that provide model rules, code rules, or both.
+Some built-in rules are checked in code, others (most) are judged by an LLM. You can also install `nll` plugins to provide your own set of rules.
 
 ## Install
 
@@ -106,17 +106,15 @@ n-files = 3
 
 A description can name the rule's options in braces. Write an option name with underscores, so `max-sentences` becomes `{max_sentences}` and `"More than {max_sentences} sentences."` renders with the configured value. Options work on Python and model rules. nll renders their values before sending model rules to the judge.
 
-#### Installing rule packages
+#### Installing rules plugins
 
-Rule packages are ordinary Python packages. Install them in the same environment
-as `nll`, then enable their `nll.plugins` entry-point names. With uv tools:
+Install them alongside `nll`:
 
 ```sh
 uv tool install nll --with nll-acme-rules
 ```
 
-Running the command again replaces nll's tool environment. Include every enabled
-plugin with another `--with` option.
+Then enable their `nll.plugins` entry-point names.
 
 ```toml
 plugins = ["acme-rules"]
@@ -127,14 +125,30 @@ The package contributes default sections under `[rules]`. Your configuration can
 
 `nll plugins` lists the rule packages enabled by the active configuration.
 
-To author a package, declare an entry point that names a factory returning `nll.plugins.Plugin`:
+To author a package, declare an entry point that names an `nll.plugins.Plugin` subclass:
 
 ```toml
 [project.entry-points."nll.plugins"]
-acme-rules = "nll_acme_rules:build_plugin"
+acme-rules = "nll_acme_rules:AcmePlugin"
 ```
 
-The factory returns a `Plugin` with a matching `name` and a `rules` mapping in the same shape as `[rules]`. Code rule subclasses register themselves when the package imports them. Each code rule needs a definition in `rules`.
+```python
+from nll.plugins import Plugin
+
+
+class AcmePlugin(Plugin):
+    """Define Acme's writing rules."""
+
+    name = "acme-rules"
+    rules = {
+        "ACM": {
+            "description": "Acme writing rules",
+            "001": "Avoid Acme wording.",
+        }
+    }
+```
+
+The class's `name` must match the entry point name. Code rule subclasses register themselves when the package imports them. Each code rule needs a definition in `rules`.
 
 ### Check configuration
 `nll rules` prints every rule with its resolved on/off state and whether Python or the model checks it.

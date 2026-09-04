@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, ValidationError
 
@@ -98,9 +98,15 @@ class LinterConfig(BaseModel):
         """Resolve settings from a config file."""
         project_settings = read_config_file(config_file)
         shipped_settings = read_config_file(SHIPPED_CONFIG_FILE)
-        plugin_settings = merge_settings(shipped_settings, project_settings)
-        plugins = load_plugins(plugin_settings["plugins"])
         settings = shipped_settings
+        plugin_names = merge_settings(settings, project_settings)["plugins"]
+
+        if not isinstance(plugin_names, list) or not all(
+            isinstance(name, str) and name != "" for name in plugin_names
+        ):
+            raise ValueError("Configuration error: plugins must be a list of names")
+
+        plugins = load_plugins(cast(list[str], plugin_names))
 
         for plugin in plugins:
             settings = merge_settings(settings, {"rules": plugin.rules})

@@ -1,7 +1,4 @@
-"""Find and parse the selected configuration file.
-
-Linter settings layer the selected configuration over the shipped defaults.
-"""
+"""Configuration for the linter."""
 
 import logging
 import os
