@@ -214,6 +214,7 @@ def test_lint_paths_limits_concurrent_model_calls(
         ("agent = 'unknown'\n", "agent"),
         ("max-concurrency = 0\n", "max-concurrency"),
         ("include-extensions = 'md'\n", "include-extensions"),
+        ("plugins = 'acme-rules'\n", "plugins"),
         ("unknown = true\n", "unknown"),
     ],
 )

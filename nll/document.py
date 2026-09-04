@@ -46,7 +46,7 @@ class Document:
         elif self.path.suffix.lower() == ".rst":
             omitted_ranges = self._find_rst_code_block_ranges()
         else:
-            return self.prose
+            return self._prose
 
         lines = self._prose.splitlines(keepends=True)
         omitted_lines = [False] * len(lines)
@@ -64,7 +64,7 @@ class Document:
         """Find source ranges for Markdown code blocks."""
         ranges = []
 
-        for token in MARKDOWN_PARSER.parse(self.prose):
+        for token in MARKDOWN_PARSER.parse(self._prose):
             if token.type in {"code_block", "fence"} and token.map is not None:
                 ranges.append((token.map[0], token.map[1]))
 
@@ -98,7 +98,7 @@ class Document:
                 block.line,
             )
 
-            start_line = self.prose.count("\n", 0, start_offset)
+            start_line = self._prose.count("\n", 0, start_offset)
             end_line = start_line + len(block.rawsource.splitlines())
             ranges.append((start_line, end_line))
             source_offset = start_offset + len(block.rawsource)
@@ -112,7 +112,7 @@ class Document:
         reported_line: int | None,
     ) -> int:
         """Find the source offset for a reStructuredText literal block."""
-        offset = self.prose.find(rawsource, source_offset)
+        offset = self._prose.find(rawsource, source_offset)
 
         if offset == -1:
             raise ValueError("Could not locate a reStructuredText code block.")
@@ -123,13 +123,13 @@ class Document:
         expected_offset = offset
 
         while offset != -1:
-            line_number = self.prose.count("\n", 0, offset) + 1
+            line_number = self._prose.count("\n", 0, offset) + 1
 
             if line_number > reported_line:
                 break
 
             expected_offset = offset
-            offset = self.prose.find(rawsource, offset + 1)
+            offset = self._prose.find(rawsource, offset + 1)
 
         return expected_offset
 

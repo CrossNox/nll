@@ -1,6 +1,5 @@
-from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import ClassVar
 
 import pytest
 
@@ -12,7 +11,7 @@ from nll.rules import CodeRule, ModelRule
 from nll.violations import Violation, Violations
 
 
-class MarkerRule(CodeRule):
+class MarkerRule(CodeRule, identifier="ACM001"):
     def __call__(self, document: Document) -> Violations:
         if "marker" not in document.prose:
             return Violations([])
@@ -21,36 +20,29 @@ class MarkerRule(CodeRule):
 
 
 class FakeEntryPoint:
-    def __init__(self, name: str, factory: Callable[[], Plugin]) -> None:
+    def __init__(self, name: str, plugin_class: type[object]) -> None:
         self.name = name
-        self.factory = factory
+        self.plugin_class = plugin_class
 
-    def load(self) -> Callable[[], Plugin]:
-        return self.factory
-
-
-def make_plugin() -> Plugin:
-    return Plugin(
-        name="acme-rules",
-        rules={
-            "ACM": {
-                "description": "Rules from Acme",
-                "001": "Contains a marker.",
-                "002": "Needs a model judgment.",
-            }
-        },
-        code_rules={"ACM001": MarkerRule},
-    )
+    def load(self) -> type[object]:
+        return self.plugin_class
 
 
-def install_fake_plugin(
-    monkeypatch: pytest.MonkeyPatch, plugin: Plugin | None = None
-) -> None:
-    installed_plugin = make_plugin() if plugin is None else plugin
+class AcmePlugin(Plugin):
+    name = "acme-rules"
+    rules: ClassVar = {
+        "ACM": {
+            "description": "Rules from Acme",
+            "001": "Contains a marker.",
+            "002": "Needs a model judgment.",
+        }
+    }
 
+
+def install_fake_plugin(monkeypatch: pytest.MonkeyPatch) -> None:
     def find_entry_points(*, group: str) -> list[FakeEntryPoint]:
         assert group == "nll.plugins"
-        return [FakeEntryPoint("acme-rules", lambda: installed_plugin)]
+        return [FakeEntryPoint("acme-rules", AcmePlugin)]
 
     monkeypatch.setattr("nll.plugins.entry_points", find_entry_points)
 
@@ -122,66 +114,70 @@ def test_shipped_configuration_enables_its_plugin(
 
     linter = Linter.from_config(project_config)
 
-    assert [plugin.name for plugin in linter.plugins] == ["acme-rules"]
-    assert [plugin.name for plugin in linter.config.plugins] == ["acme-rules"]
+    assert linter.config.plugins == ["acme-rules"]
     assert [rule.identifier for rule in linter.rules.code_rules] == ["ACM001"]
 
 
-def test_plugin_identifier_collision_names_both_providers(
+def test_plugin_definitions_override_shipped_definitions(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    colliding_plugin = Plugin(
-        name="acme-rules",
-        rules={
+    class AcmePluginWithChrRule(Plugin):
+        name = "acme-rules"
+        rules: ClassVar = {
             "CHR": {
                 "description": "Characters that must not appear in prose",
                 "004": "Another semicolon rule.",
             }
-        },
+        }
+
+    monkeypatch.setattr(
+        "nll.plugins.entry_points",
+        lambda *, group: [FakeEntryPoint("acme-rules", AcmePluginWithChrRule)],
     )
-    install_fake_plugin(monkeypatch, colliding_plugin)
     config = tmp_path / "nll.toml"
-    config.write_text('plugins = ["acme-rules"]\n', encoding="utf-8")
+    config.write_text(
+        'plugins = ["acme-rules"]\nselect = ["CHR004"]\n', encoding="utf-8"
+    )
 
-    with pytest.raises(
-        ValueError,
-        match=r"rule CHR004 is provided by both nll and plugin acme-rules",
-    ):
-        Linter.from_config(config)
+    linter = Linter.from_config(config)
+
+    assert [
+        rule.description
+        for rule in linter.rules.rules_definitions.iter_rules()
+        if rule.identifier == "CHR004"
+    ] == ["Another semicolon rule."]
 
 
-def test_plugin_identifier_collision_names_both_plugins(
+def test_later_plugins_override_earlier_plugin_definitions(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    other_plugin = Plugin(
-        name="house-rules",
-        rules={
+    class HousePlugin(Plugin):
+        name = "house-rules"
+        rules: ClassVar = {
             "ACM": {
                 "description": "Rules from Acme",
                 "001": "A conflicting rule.",
             }
-        },
-    )
+        }
 
     def find_entry_points(*, group: str) -> list[FakeEntryPoint]:
         assert group == "nll.plugins"
         return [
-            FakeEntryPoint("acme-rules", make_plugin),
-            FakeEntryPoint("house-rules", lambda: other_plugin),
+            FakeEntryPoint("acme-rules", AcmePlugin),
+            FakeEntryPoint("house-rules", HousePlugin),
         ]
 
     monkeypatch.setattr("nll.plugins.entry_points", find_entry_points)
     config = tmp_path / "nll.toml"
     config.write_text('plugins = ["acme-rules", "house-rules"]\n', encoding="utf-8")
 
-    with pytest.raises(
-        ValueError,
-        match=(
-            r"rule ACM001 is provided by both plugin acme-rules and "
-            "plugin house-rules"
-        ),
-    ):
-        Linter.from_config(config)
+    linter = Linter.from_config(config)
+
+    assert [
+        rule.description
+        for rule in linter.rules.rules_definitions.iter_rules()
+        if rule.identifier == "ACM001"
+    ] == ["A conflicting rule."]
 
 
 def test_missing_enabled_plugin_fails_before_linting(
@@ -198,10 +194,18 @@ def test_missing_enabled_plugin_fails_before_linting(
 def test_disabled_plugin_is_not_loaded(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def refuse_to_discover_plugins(*, group: str) -> list[FakeEntryPoint]:
-        raise AssertionError("nll must not discover disabled plugins")
+    class UnusedPlugin(Plugin):
+        name = "unused-rules"
+        rules: ClassVar = {}
 
-    monkeypatch.setattr("nll.plugins.entry_points", refuse_to_discover_plugins)
+    class UnusedEntryPoint(FakeEntryPoint):
+        def load(self) -> type[object]:
+            raise AssertionError("nll loaded a disabled plugin")
+
+    monkeypatch.setattr(
+        "nll.plugins.entry_points",
+        lambda *, group: [UnusedEntryPoint("unused-rules", UnusedPlugin)],
+    )
     config = tmp_path / "nll.toml"
     config.write_text('select = ["CHR004"]\n', encoding="utf-8")
 
@@ -210,14 +214,14 @@ def test_disabled_plugin_is_not_loaded(
     assert [rule.identifier for rule in linter.rules.code_rules] == ["CHR004"]
 
 
-def test_plugin_factory_must_return_a_plugin(
+def test_plugin_entry_point_must_define_a_plugin(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def build_wrong_value() -> Any:
-        return object()
+    class NotAPlugin:
+        pass
 
     def find_entry_points(*, group: str) -> list[FakeEntryPoint]:
-        return [FakeEntryPoint("acme-rules", build_wrong_value)]  # type: ignore[arg-type]
+        return [FakeEntryPoint("acme-rules", NotAPlugin)]
 
     monkeypatch.setattr("nll.plugins.entry_points", find_entry_points)
     config = tmp_path / "nll.toml"
@@ -225,6 +229,6 @@ def test_plugin_factory_must_return_a_plugin(
 
     with pytest.raises(
         ValueError,
-        match="plugin acme-rules did not return an nll Plugin",
+        match="plugin acme-rules does not define an nll Plugin",
     ):
         Linter.from_config(config)

@@ -115,7 +115,7 @@ class LinterConfig(BaseModel):
                 strict=True,
             )
         except ValidationError as error:
-            raise ValueError(f"Configuration error: {error}") from error
+            raise ValueError(f"Configuration error for plugins: {error}") from error
 
         plugins = load_plugins(plugin_names)
         settings = shipped_settings

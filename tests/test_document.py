@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from nll.document import Document, DocumentFormat
+from nll.document import Document
 
 
 def test_document_reads_utf8_text_from_a_path(tmp_path: Path) -> None:
@@ -37,30 +37,29 @@ def test_prose_takes_precedence_over_a_path(tmp_path: Path) -> None:
     assert document.prose == "explicit"
 
 
-def test_document_treats_unknown_path_extensions_as_plain_text(tmp_path: Path) -> None:
+def test_document_keeps_unknown_path_extensions_unchanged(tmp_path: Path) -> None:
     document = Document(path=tmp_path / "notes.py", prose="print('text')")
 
-    assert document.format is DocumentFormat.PLAIN_TEXT
+    assert document.prose == "print('text')"
 
 
 @pytest.mark.parametrize("fence", ["```", "~~~"])
-def test_remove_code_blocks_omits_markdown_fences_and_keeps_source_lines(
+def test_document_omits_markdown_fences_and_keeps_source_lines(
     fence: str,
 ) -> None:
+    prose = f"Before;\n{fence}python\nprint('inside;')\n{fence}\nAfter;\n"
     document = Document(
         path=Path("notes.md"),
-        prose=(f"Before;\n{fence}python\nprint('inside;')\n{fence}\nAfter;\n"),
+        prose=prose,
+        ignore_code_blocks=True,
     )
 
-    without_code_blocks = document.remove_code_blocks()
-
-    assert without_code_blocks.format is DocumentFormat.MARKDOWN
-    assert without_code_blocks.prose == "Before;\n\n\n\nAfter;\n"
-    assert without_code_blocks.prose.count("\n") == document.prose.count("\n")
+    assert document.prose == "Before;\n\n\n\nAfter;\n"
+    assert document.prose.count("\n") == prose.count("\n")
 
 
 @pytest.mark.parametrize("directive", ["code", "code-block"])
-def test_remove_code_blocks_omits_rst_code_directives(
+def test_document_omits_rst_code_directives(
     directive: str,
 ) -> None:
     document = Document(
@@ -75,25 +74,23 @@ def test_remove_code_blocks_omits_rst_code_directives(
             "After;\n"
         ),
         path=Path("notes.rst"),
+        ignore_code_blocks=True,
     )
 
-    without_code_blocks = document.remove_code_blocks()
-
-    assert without_code_blocks.prose == "Before;\n\n\n\n\n\n\nAfter;\n"
+    assert document.prose == "Before;\n\n\n\n\n\n\nAfter;\n"
 
 
-def test_remove_code_blocks_omits_rst_literal_bodies_and_keeps_introducers() -> None:
+def test_document_omits_rst_literal_bodies_and_keeps_introducers() -> None:
     document = Document(
         path=Path("notes.rst"),
         prose=("Before;\nRun this::\n\n   print('inside;')\n\nAfter;\n"),
+        ignore_code_blocks=True,
     )
 
-    without_code_blocks = document.remove_code_blocks()
-
-    assert without_code_blocks.prose == "Before;\nRun this::\n\n\n\nAfter;\n"
+    assert document.prose == "Before;\nRun this::\n\n\n\nAfter;\n"
 
 
-def test_remove_code_blocks_does_not_expand_rst_include_directives(
+def test_document_does_not_expand_rst_include_directives(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     included = tmp_path / "included.rst"
@@ -101,37 +98,38 @@ def test_remove_code_blocks_does_not_expand_rst_include_directives(
     monkeypatch.chdir(tmp_path)
     prose = ".. include:: included.rst\n"
 
-    document = Document(path=tmp_path / "notes.rst", prose=prose)
+    document = Document(
+        path=tmp_path / "notes.rst", prose=prose, ignore_code_blocks=True
+    )
 
-    assert document.remove_code_blocks().prose == prose
+    assert document.prose == prose
 
 
-def test_remove_code_blocks_preserves_matching_prose_before_rst_code() -> None:
+def test_document_preserves_matching_prose_before_rst_code() -> None:
     document = Document(
         path=Path("notes.rst"),
         prose=("print('inside;')\n\n.. code:: python\n\n   print('inside;')\n\n"),
+        ignore_code_blocks=True,
     )
 
-    without_code_blocks = document.remove_code_blocks()
-
-    assert without_code_blocks.prose == "print('inside;')\n\n.. code:: python\n\n\n\n"
+    assert document.prose == "print('inside;')\n\n.. code:: python\n\n\n\n"
 
 
-def test_remove_code_blocks_uses_markdown_structure_in_a_block_quote() -> None:
+def test_document_uses_markdown_structure_in_a_block_quote() -> None:
     document = Document(
         path=Path("notes.md"),
         prose=("> ```python\n> print('inside;')\n> ```\nAfter;\n"),
+        ignore_code_blocks=True,
     )
 
-    without_code_blocks = document.remove_code_blocks()
-
-    assert without_code_blocks.prose == "\n\n\nAfter;\n"
+    assert document.prose == "\n\n\nAfter;\n"
 
 
-def test_remove_code_blocks_keeps_plain_text_unchanged() -> None:
+def test_document_keeps_plain_text_unchanged() -> None:
     document = Document(
         path=Path("notes.txt"),
         prose="```python\nprint('inside;')\n```\n",
+        ignore_code_blocks=True,
     )
 
-    assert document.remove_code_blocks() is document
+    assert document.prose == "```python\nprint('inside;')\n```\n"

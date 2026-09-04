@@ -1,5 +1,5 @@
-from collections.abc import Callable
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 import typer
@@ -162,18 +162,21 @@ def test_plugins_lists_enabled_packages(
     class FakeEntryPoint:
         name = "acme-rules"
 
-        def load(self) -> Callable[[], Plugin]:
-            return lambda: Plugin(
-                name="acme-rules",
-                rules={"ACM": {"description": "Acme", "001": "An Acme rule."}},
-            )
+        def load(self) -> type[Plugin]:
+            return AcmePlugin
+
+    class AcmePlugin(Plugin):
+        name = "acme-rules"
+        rules: ClassVar = {
+            "ACM": {"description": "Acme", "001": "An Acme rule."}
+        }
 
     monkeypatch.setattr("nll.plugins.entry_points", lambda *, group: [FakeEntryPoint()])
 
     result = runner.invoke(app, ["plugins"])
 
     assert result.exit_code == 0
-    assert result.stdout == "acme-rules\n"
+    assert result.stdout == "['acme-rules']\n"
 
 
 def test_plugins_rejects_a_missing_enabled_package(

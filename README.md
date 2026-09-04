@@ -133,6 +133,8 @@ acme-rules = "nll_acme_rules:AcmePlugin"
 ```
 
 ```python
+from typing import ClassVar
+
 from nll.document import Document
 from nll.plugins import Plugin
 from nll.rules import CodeRule
@@ -177,7 +179,7 @@ class AcmePlugin(Plugin):
     """Define Acme's writing rules."""
 
     name = "acme-rules"
-    rules = {
+    rules: ClassVar = {
         "ACM": {
             "description": "Acme writing rules",
             "001": "Avoid obviously.",
