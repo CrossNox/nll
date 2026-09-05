@@ -1,5 +1,5 @@
 # linnl
-`linnl` is a text linter aimed to catch LLM tells and reduce the complexity of the text produced by them, so that the cognitive load on the reader is reduced and ideas are clearer.
+`linnl` is a text linter aimed to catch LLM tells and reduce the complexity of the text produced by them.
 
 Some built-in rules are checked in code, others (most) are judged by an LLM. You can also install `linnl` plugins to provide your own set of rules.
 
