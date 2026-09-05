@@ -16,7 +16,16 @@ You will either need a working `claude` login or an `ANTHROPIC_API_KEY` set in y
 Codex reuses the local Codex session. You can also set `OPENAI_API_KEY`.
 
 ## Use
+### In Claude Code or Codex
 
+```sh
+linnl install-to-agent claude
+linnl install-to-agent codex
+```
+
+Then run `/linnl` in your chat.
+
+### CLI
 ```sh
 linnl lint notes.md
 linnl lint docs/

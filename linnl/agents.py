@@ -40,7 +40,7 @@ AGENT_COMMAND_DIRECTORIES: dict[Agent, tuple[str, str]] = {
 }
 
 
-def install_hook(agent: Agent, *, local: bool) -> Path:
+def install_command(agent: Agent, *, local: bool) -> Path:
     """Install the linnl command for an agent and return its path."""
     agent_directory, command_directory = AGENT_COMMAND_DIRECTORIES[agent]
     base_directory = Path.cwd() if local else Path.home()

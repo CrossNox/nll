@@ -1,6 +1,6 @@
 [project]
 name = "linnl"
-version = "0.1.0"
+version = "0.1.1"
 description = "Lint prose against a configurable set of style rules, judged by a LLM."
 readme = "README.md"
 requires-python = ">=3.12"

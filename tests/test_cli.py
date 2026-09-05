@@ -167,9 +167,7 @@ def test_plugins_lists_enabled_packages(
 
     class AcmePlugin(Plugin):
         name = "acme-rules"
-        rules: ClassVar = {
-            "ACM": {"description": "Acme", "001": "An Acme rule."}
-        }
+        rules: ClassVar = {"ACM": {"description": "Acme", "001": "An Acme rule."}}
 
     monkeypatch.setattr(
         "linnl.plugins.entry_points", lambda *, group: [FakeEntryPoint()]
@@ -210,12 +208,12 @@ def test_bad_config_fails_with_a_cli_error(
     assert isinstance(result.exception, ValueError)
 
 
-def test_install_hook_command_uses_the_selected_agent(
+def test_install_to_agent_command_uses_the_selected_agent(
     no_user_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(no_user_config)
 
-    result = runner.invoke(app, ["install-hook", "claude", "--local"])
+    result = runner.invoke(app, ["install-to-agent", "claude", "--local"])
 
     assert result.exit_code == 0
     assert (no_user_config / ".claude" / "commands" / "linnl.md").exists()

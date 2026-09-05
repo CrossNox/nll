@@ -6,8 +6,7 @@ from typing import Annotated
 
 import typer
 
-from linnl.agents import Agent
-from linnl.agents import install_hook as install_agent_hook
+from linnl.agents import Agent, install_command
 from linnl.config import SHIPPED_CONFIG_FILE, discover_config_file
 from linnl.linter import Linter
 from linnl.logconfig import (
@@ -202,7 +201,7 @@ def list_plugins(config_file: ConfigOption = None) -> None:
 
 
 @app.command()
-def install_hook(
+def install_to_agent(
     agent: Agent,
     local: bool = typer.Option(
         False,
@@ -210,6 +209,6 @@ def install_hook(
         help="Install in the current project or in your home directory.",
     ),
 ) -> None:
-    """Install linnl as hook for your coding agent."""
-    command_path = install_agent_hook(agent, local=local)
+    """Install the linnl command for your coding agent."""
+    command_path = install_command(agent, local=local)
     typer.echo(f"Installed linnl command at {command_path}")
